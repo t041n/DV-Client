@@ -1,4 +1,52 @@
-# Digital Vigital (DV) Launcher - v1.0.0 Release Notes
+# Digital Vigital (DV) Launcher — Release Notes
+
+---
+
+## 🌟 What's New in v1.0.1 (November 16, 2026)
+
+### 🎨 In-Game Skin Studio & SMP Multiplayer Visibility
+- **Universal Skin Synchronization Engine**:
+  - Automatically compiles and synchronizes your selected skin into the `DV_Universal_Skin` resource pack across all instances.
+  - Automatically sanitizes `options.txt` on modern Minecraft versions (1.20+ / 1.21+), purging `DV_Universal_Skin` from `incompatibleResourcePacks:` so Minecraft will never block or disable your custom skin pack.
+- **1-Click "Force Sync"**:
+  - Added a dedicated **Force Sync** button directly on the Universal In-Game Skin Sync card in the Skin Studio. One click instantly forces synchronization into the instance folders and mod caches.
+- **SMP & Multiplayer Skin Visibility Controls**:
+  - **1-Click CustomSkinLoader Integration**: Easily install `CustomSkinLoader` via Modrinth to guarantee skin rendering across multiplayer servers and offline SMPs.
+  - **In-Game Command Helper**: Added a 1-click **Copy Command** (`/skin <player>`) for servers running SkinsRestorer or SkinSystem.
+- **Refined Studio & 3D Stage**:
+  - Cleaned up cosmetic collections and optimized the 3D skin canvas for fluid 60 FPS rotation and animation preview.
+
+### 🛠️ Stability & Crash Diagnostics
+- **Duplicate ASM Classpath Crash Fix**:
+  - Fixed a fatal startup crash on Fabric 1.21+ caused by multiple versions of ASM libraries (`asm-9.10.1.jar` and `asm-9.6.jar`):
+    ```text
+    Caused by: java.lang.IllegalStateException: duplicate ASM classes found on classpath:
+    .../asm-9.10.1.jar!/.../ClassReader.class, .../asm-9.6.jar!/.../ClassReader.class
+    ```
+  - Added smart classpath deduplication in the launcher JVM argument builder to filter out secondary conflicting ASM libraries before spawning Minecraft.
+- **Diagnostic Engine Hardening**:
+  - Fixed a bug where early launch failures and uncaught JVM initialization errors were erroneously categorized as "Session Finished".
+  - Startup initialization errors and bytecode conflicts are now accurately flagged with actionable fix suggestions and direct links to the Live Console.
+
+### 🖥️ UI & Layout Polish
+- **Alert Banner Layout Fix**:
+  - Fixed banner and button overlap in the crash notification bar on compact and laptop resolutions.
+  - Added a dedicated, styled dismiss button ("Dismiss alert") to dismiss post-game notifications.
+- **Owner & Developer Profile**:
+  - Updated the About page showcase to feature **_tor.in** as the Project Owner and Lead Architect.
+  - Direct links to GitHub profile ([https://github.com/t041n](https://github.com/t041n)) and new project repository.
+
+### 📦 v1.0.1 Downloads & SHA-256 Checksums
+| Package | Size | SHA-256 Checksum |
+| :--- | :---: | :--- |
+| [**`DigitalVigital-Setup-1.0.1.exe`**](https://github.com/t041n/DV-Client/releases/download/v1.0.1/DigitalVigital-Setup-1.0.1.exe) | **~12 MB** | `1fd03ce00dc4c785b3d4d9fd5f6a6d667c26940069ab0ca515de35c6f7874d3a` |
+| [**`DigitalVigital-v1.0.1-windows-x64-portable.zip`**](https://github.com/t041n/DV-Client/releases/download/v1.0.1/DigitalVigital-v1.0.1-windows-x64-portable.zip) | **~15 MB** | `e0ae4f531fb256923ea5828e0654080cca348ef0e01e6477e81d7eb5c7c48c2d` |
+| [**`DigitalVigitalLauncher.exe`**](https://github.com/t041n/DV-Client/releases/download/v1.0.1/DigitalVigitalLauncher.exe) | **1.4 MB** | `62f584fdda32846c018390dc17bf5cfb2218b1042cd2265fe2650fe7dd81712e` |
+| [**`dv_core.dll`**](https://github.com/t041n/DV-Client/releases/download/v1.0.1/dv_core.dll) | **42 MB** | `ae3ab2896bfa05e878b353e31bf3a09a6026bf0eeafafdc8f5665aa4d21f9f7d` |
+
+---
+
+# v1.0.0 Milestone Release Notes
 
 **Digital Vigital (DV) Launcher v1.0.0** is the official milestone release — a ground-up, blazing-fast desktop Minecraft client engineered with an independent **Rust** backend, **Tauri v2**, and a modern **Svelte** UI. Built for pure performance, privacy, and zero bloat (no ads, no trackers, no paywalls), v1.0.0 brings multi-drive storage management, a 3D Skins & Capes Studio, automated crash reporting, and multi-Java runtime orchestration.
 
