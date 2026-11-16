@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 pub const GITHUB_RELEASES_API: &str =
-    "https://api.github.com/repos/SYN606/dv-client/releases/latest";
+    "https://api.github.com/repos/t041n/DV-Client/releases/latest";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UpdateCheckResult {
@@ -60,7 +60,7 @@ pub fn get_launcher_info() -> LauncherInfo {
         name: branding::APP_NAME.to_string(),
         version: branding::APP_VERSION.to_string(),
         author: "Digital Vigital".to_string(),
-        repo_url: "https://github.com/SYN606/dv-client".to_string(),
+        repo_url: "https://github.com/t041n/DV-Client".to_string(),
     }
 }
 

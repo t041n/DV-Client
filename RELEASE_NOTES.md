@@ -73,7 +73,7 @@
 - **Streamlined Navigation**:
   - Tab bar: **Mod**, **Skins**, **Settings**, **Console**, **About**.
 - **Dedicated About Page**:
-  - Developed by **SYN 606** ([https://syn606.wtf](https://syn606.wtf)).
+  - Owned & Developed by **_tor.in** ([https://github.com/t041n](https://github.com/t041n)).
   - Official Minecraft portal link: [https://digitalvigital.fun/minecraft](https://digitalvigital.fun/minecraft).
   - Official Community Discord: [https://discord.gg/flex-dv](https://discord.gg/flex-dv).
   - Cleaned up legacy SMP link references across the entire codebase.
@@ -146,7 +146,7 @@
   - Automatically transitions when Minecraft launches: displays **"Playing Minecraft <Version>"** with live elapsed playtime timers.
   - Automatically resets to idle when Minecraft exits or terminates.
 - **Embedded Launcher Logo**:
-  - Direct HTTPS resolution via Discord proxy (`https://raw.githubusercontent.com/SYN606/dv-client/main/assets/logo.png`) guaranteeing the obsidian/gold launcher logo renders on Discord user profiles without requiring manual Developer Portal asset key configuration.
+  - Direct HTTPS resolution via Discord proxy (`https://raw.githubusercontent.com/t041n/DV-Client/main/assets/logo.png`) guaranteeing the obsidian/gold launcher logo renders on Discord user profiles without requiring manual Developer Portal asset key configuration.
   - Interactive profile buttons: **"Play Minecraft"** and **"Join Discord"**.
   - Respects privacy settings: customizable options for showing Minecraft version, modpack, elapsed time, or toggling Discord RPC entirely.
 
@@ -164,9 +164,9 @@
 
 | Package | Size | Description |
 | :--- | :---: | :--- |
-| [**`DigitalVigital-Setup-1.0.0.exe`**](https://github.com/SYN606/dv-client/releases/download/v1.0.0/DigitalVigital-Setup-1.0.0.exe) | **~10.6 MB** | **Windows NSIS Setup**: Authenticode-signed installer with custom drive selection, Start Menu & Desktop shortcuts, clean uninstaller, bundled WebView2Loader, and Add/Remove Programs registration. |
-| [**`DigitalVigital-v1.0.0-windows-x64-portable.zip`**](https://github.com/SYN606/dv-client/releases/download/v1.0.0/DigitalVigital-v1.0.0-windows-x64-portable.zip) | **~14.7 MB** | **Portable Standalone Package**: Contains signed `DigitalVigitalLauncher.exe`, `WebView2Loader.dll`, `DigitalVigital.cer`, `Trust-DigitalVigital.bat`, assets, and documentation. No installation required. |
-| [**`DigitalVigitalLauncher.exe`**](https://github.com/SYN606/dv-client/releases/download/v1.0.0/DigitalVigitalLauncher.exe) | **41 MB** | **Direct Executable**: Standalone Windows executable with embedded primary icon resource (`1 ICON`) and Authenticode signature. |
+| [**`DigitalVigital-Setup-1.0.0.exe`**](https://github.com/t041n/DV-Client/releases/download/v1.0.0/DigitalVigital-Setup-1.0.0.exe) | **~10.6 MB** | **Windows NSIS Setup**: Authenticode-signed installer with custom drive selection, Start Menu & Desktop shortcuts, clean uninstaller, bundled WebView2Loader, and Add/Remove Programs registration. |
+| [**`DigitalVigital-v1.0.0-windows-x64-portable.zip`**](https://github.com/t041n/DV-Client/releases/download/v1.0.0/DigitalVigital-v1.0.0-windows-x64-portable.zip) | **~14.7 MB** | **Portable Standalone Package**: Contains signed `DigitalVigitalLauncher.exe`, `WebView2Loader.dll`, `DigitalVigital.cer`, `Trust-DigitalVigital.bat`, assets, and documentation. No installation required. |
+| [**`DigitalVigitalLauncher.exe`**](https://github.com/t041n/DV-Client/releases/download/v1.0.0/DigitalVigitalLauncher.exe) | **41 MB** | **Direct Executable**: Standalone Windows executable with embedded primary icon resource (`1 ICON`) and Authenticode signature. |
 
 ---
 

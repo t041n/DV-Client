@@ -12,7 +12,7 @@ use tracing::{debug, info};
 
 pub const DEFAULT_DISCORD_CLIENT_ID: &str = "1341050215758069811";
 pub const DISCORD_LOGO_URL: &str =
-    "https://raw.githubusercontent.com/SYN606/dv-client/main/assets/logo.png";
+    "https://raw.githubusercontent.com/t041n/DV-Client/main/assets/logo.png";
 
 #[derive(Clone, Debug)]
 pub enum DiscordAction {

@@ -1274,7 +1274,7 @@ export class LauncherState {
     const url =
       this.updateInfo?.download_url ||
       this.updateInfo?.html_url ||
-      "https://github.com/SYN606/dv-client/releases";
+      "https://github.com/t041n/DV-Client/releases";
     try {
       await TauriService.openUrl(url);
     } catch (e) {

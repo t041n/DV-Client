@@ -73,11 +73,11 @@
       </button>
 
       <button
-        onclick={() => openLink("https://syn606.wtf")}
+        onclick={() => openLink("https://github.com/t041n")}
         class="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
       >
         <Code2 class="w-4 h-4 text-purple-400" />
-        <span>Developer: syn606.wtf</span>
+        <span>Owner: _tor.in</span>
         <ExternalLink class="w-3.5 h-3.5 text-neutral-400" />
       </button>
     </div>
@@ -89,20 +89,20 @@
   >
     <div class="flex items-center gap-4">
       <div
-        class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-purple-500/25 shrink-0"
+        class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-purple-500/25 shrink-0"
       >
-        606
+        _tor.in
       </div>
       <div>
         <div class="flex items-center gap-2">
           <span class="text-xs font-bold uppercase tracking-wider text-purple-400">
-            Lead Architect & Developer
+            Owner & Lead Architect
           </span>
           <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
           <span class="text-xs text-neutral-400">Creator of Digital Vigital</span>
         </div>
         <h3 class="text-xl font-black text-white tracking-tight mt-0.5">
-          SYN 606
+          _tor.in
         </h3>
         <p class="text-xs text-neutral-300 mt-1 leading-relaxed">
           Crafted with love for the Minecraft gaming community. Focused on clean system architecture, low-level Rust systems programming, and high-FPS gaming.
@@ -111,10 +111,10 @@
     </div>
 
     <button
-      onclick={() => openLink("https://syn606.wtf")}
+      onclick={() => openLink("https://github.com/t041n")}
       class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-purple-600/30 shrink-0 hover:scale-105"
     >
-      <span>Visit syn606.wtf</span>
+      <span>Visit _tor.in</span>
       <ExternalLink class="w-4 h-4" />
     </button>
   </div>
@@ -247,7 +247,7 @@
         </p>
       </div>
       <button
-        onclick={() => openLink("https://github.com/SYN606/dv-client")}
+        onclick={() => openLink("https://github.com/t041n/DV-Client")}
         class="w-full px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
       >
         <span>View on GitHub</span>

@@ -5,7 +5,7 @@
 # Digital Vigital (DV) Launcher
 ### *Your Minecraft. Your Control.*
 
-[![Release](https://img.shields.io/badge/Release-v1.0.0-FF3344?style=for-the-badge)](https://github.com/SYN606/dv-client)
+[![Release](https://img.shields.io/badge/Release-v1.0.0-FF3344?style=for-the-badge)](https://github.com/t041n/DV-Client)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/flex-dv)
 [![Website](https://img.shields.io/badge/Website-digitalvigital.fun-10B981?style=for-the-badge)](https://digitalvigital.fun/minecraft)
 
@@ -56,7 +56,7 @@ Simply download and run `dv-launcher-app.exe` (or `DigitalVigital-Setup-1.0.0.ex
 #### From Source
 ```bash
 # Clone the repository
-git clone https://github.com/SYN606/dv-client
+git clone https://github.com/t041n/DV-Client
 cd dv-client
 
 # Build frontend & run desktop app
@@ -81,9 +81,10 @@ cargo run --release
 
 Have questions, suggestions, or want to hang out with other players?
 
+- **Project Owner**: **_tor.in** ([@t041n](https://github.com/t041n))
 - **Official Website**: [digitalvigital.fun](https://digitalvigital.fun/minecraft)
 - **Discord Community**: [discord.gg/flex-dv](https://discord.gg/flex-dv)
-- **Report an Issue**: Open an issue on our [GitHub repository](https://github.com/SYN606/dv-client/issues)
+- **Report an Issue**: Open an issue on our [GitHub repository](https://github.com/t041n/DV-Client/issues)
 
 
 ## Legal Notice
