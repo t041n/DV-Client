@@ -65,6 +65,7 @@ export class LauncherState {
   crashDetails = $state<CrashAnalysis | null>(null);
   hintDetails = $state<CrashAnalysis | null>(null);
   hasManualCrash = $state(false);
+  isCrashDismissed = $state(false);
 
   // Software Updates
   updateInfo = $state<UpdateCheckResult | null>(null);
@@ -120,6 +121,8 @@ export class LauncherState {
   activeCapeDataUrl = $state<string | null>(null);
   isLoadingSkin = $state(false);
   skinModelType = $state<"classic" | "slim">("classic");
+  isInstallingSmpSkinMod = $state(false);
+  isForceSmpSkinActive = $state(true);
 
   // Notifications toast
   toastMessage = $state("");
@@ -189,6 +192,9 @@ export class LauncherState {
         } else if (st === "finished" || st === "stopped") {
           this.gameStatus = "idle";
           this.launchStatusText = "Session finished.";
+          this.crashDetails = null;
+          this.hintDetails = null;
+          this.hasManualCrash = false;
         } else if (st === "crashed") {
           this.gameStatus = "crashed";
           this.launchStatusText = "Game process closed.";
@@ -196,6 +202,7 @@ export class LauncherState {
       });
 
       await listen<CrashAnalysis>("game-crashed", (event) => {
+        this.isCrashDismissed = false;
         if (event.payload?.is_fatal === false) {
           this.hintDetails = event.payload;
           this.crashDetails = null;
@@ -214,6 +221,7 @@ export class LauncherState {
       });
 
       await listen<CrashAnalysis>("game-hint", (event) => {
+        this.isCrashDismissed = false;
         this.hintDetails = event.payload;
         this.crashDetails = null;
         this.hasManualCrash = false;
@@ -243,6 +251,11 @@ export class LauncherState {
       this.activeInstance = this.instances.find(i => i.is_active) || null;
       if (this.activeInstance && this.settings.default_max_memory_mb) {
         this.activeInstance.max_memory_mb = this.settings.default_max_memory_mb;
+      }
+      for (const inst of this.instances) {
+        if (inst.is_active && this.settings.default_max_memory_mb) {
+          inst.max_memory_mb = this.settings.default_max_memory_mb;
+        }
       }
       if (this.activeInstance) {
         await this.loadInstalledMods();
@@ -723,11 +736,12 @@ export class LauncherState {
   }
 
   // --- Skins & Capes ---
-  async loadPlayerSkin(username?: string) {
+  async loadPlayerSkin(username?: string, uuid?: string) {
     this.isLoadingSkin = true;
     try {
       const u = username || this.activeAccount?.username || null;
-      const res: PlayerSkinPayload = await TauriService.getPlayerSkin(u);
+      const g = uuid || this.activeAccount?.id || null;
+      const res: PlayerSkinPayload = await TauriService.getPlayerSkin(u, g);
       if (res && res.skin_data_url) {
         this.activeSkinDataUrl = res.skin_data_url;
       } else {
@@ -750,12 +764,16 @@ export class LauncherState {
     try {
       const picked: string | null = await TauriService.pickSkinFile();
       if (picked) {
-        const res: PlayerSkinPayload = await TauriService.applySkin(this.activeAccount.username, picked);
+        const res: PlayerSkinPayload = await TauriService.applySkin(
+          this.activeAccount.username,
+          picked,
+          this.activeAccount.id
+        );
         if (res && res.skin_data_url) {
           this.activeSkinDataUrl = res.skin_data_url;
           this.activeCapeDataUrl = res.cape_data_url || null;
         }
-        this.showToast("Skin applied to your player profile!");
+        this.showToast(`Custom skin saved & synced to GUID (${this.activeAccount.id.substring(0, 8)}...)!`);
       }
     } catch (e) {
       this.showToast("Skin upload error: " + e);
@@ -769,11 +787,15 @@ export class LauncherState {
     }
     try {
       this.isLoadingSkin = true;
-      const res: PlayerSkinPayload = await TauriService.applySkinBase64(this.activeAccount.username, base64Data);
+      const res: PlayerSkinPayload = await TauriService.applySkinBase64(
+        this.activeAccount.username,
+        base64Data,
+        this.activeAccount.id
+      );
       if (res && res.skin_data_url) {
         this.activeSkinDataUrl = res.skin_data_url;
       }
-      this.showToast("Skin applied to profile!");
+      this.showToast(`Custom skin applied to GUID (${this.activeAccount.id.substring(0, 8)}...)!`);
     } catch (e: any) {
       this.showToast("Failed to apply skin: " + e);
     } finally {
@@ -789,11 +811,15 @@ export class LauncherState {
     try {
       const picked: string | null = await TauriService.pickCapeFile();
       if (picked) {
-        const res: PlayerSkinPayload = await TauriService.applyCape(this.activeAccount.username, picked);
+        const res: PlayerSkinPayload = await TauriService.applyCape(
+          this.activeAccount.username,
+          picked,
+          this.activeAccount.id
+        );
         if (res && res.cape_data_url) {
           this.activeCapeDataUrl = res.cape_data_url;
         }
-        this.showToast("Cape applied to your profile!");
+        this.showToast(`Cape saved & synced to GUID (${this.activeAccount.id.substring(0, 8)}...)!`);
       }
     } catch (e) {
       this.showToast("Cape upload error: " + e);
@@ -807,11 +833,15 @@ export class LauncherState {
     }
     try {
       this.isLoadingSkin = true;
-      const res: PlayerSkinPayload = await TauriService.applyCapeBase64(this.activeAccount.username, base64Data);
+      const res: PlayerSkinPayload = await TauriService.applyCapeBase64(
+        this.activeAccount.username,
+        base64Data,
+        this.activeAccount.id
+      );
       if (res && res.cape_data_url) {
         this.activeCapeDataUrl = res.cape_data_url;
       }
-      this.showToast("Cape applied to profile!");
+      this.showToast(`Cape applied to GUID (${this.activeAccount.id.substring(0, 8)}...)!`);
     } catch (e: any) {
       this.showToast("Failed to apply cape: " + e);
     } finally {
@@ -819,36 +849,13 @@ export class LauncherState {
     }
   }
 
-  async importSkinByUsername(username: string) {
-    if (!this.activeAccount) {
-      this.showToast("Select a player account first.");
-      return;
-    }
-    const cleanUser = username.trim();
-    if (!cleanUser) return;
-    try {
-      this.isLoadingSkin = true;
-      const url = `https://minotar.net/skin/${encodeURIComponent(cleanUser)}`;
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error("Player skin not found");
-      const blob = await resp.blob();
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const b64 = reader.result as string;
-        await this.applySkinBase64(b64);
-        this.showToast(`Imported ${cleanUser}'s skin!`);
-      };
-      reader.readAsDataURL(blob);
-    } catch (e: any) {
-      this.showToast(`Could not load skin for ${cleanUser}: ${e.message || e}`);
-      this.isLoadingSkin = false;
-    }
-  }
-
   async resetPlayerSkin() {
     if (!this.activeAccount) return;
     try {
-      const res: PlayerSkinPayload = await TauriService.resetSkin(this.activeAccount.username);
+      const res: PlayerSkinPayload = await TauriService.resetSkin(
+        this.activeAccount.username,
+        this.activeAccount.id
+      );
       this.activeSkinDataUrl = res?.skin_data_url || DEFAULT_STEVE_SKIN_DATA_URL;
       this.showToast("Reset skin to default Steve.");
     } catch (e) {
@@ -859,12 +866,66 @@ export class LauncherState {
   async resetPlayerCape() {
     if (!this.activeAccount) return;
     try {
-      await TauriService.resetCape(this.activeAccount.username);
+      await TauriService.resetCape(
+        this.activeAccount.username,
+        this.activeAccount.id
+      );
       this.activeCapeDataUrl = null;
       this.showToast("Removed player cape.");
     } catch (e) {
-      this.showToast("Reset error: " + e);
+      this.showToast("Cape reset error: " + e);
     }
+  }
+
+  isSmpSkinModInstalled(): boolean {
+    return this.installedMods.some(m => {
+      const name = (m.name || m.file_name || m.filename || "").toLowerCase();
+      return name.includes("customskinloader") || name.includes("localskin") || name.includes("fabrictailor");
+    });
+  }
+
+  async forceSyncUniversalSkin() {
+    if (!this.activeAccount) {
+      this.showToast("Select a player account first.");
+      return;
+    }
+    try {
+      await TauriService.forceSyncSkinToInstances(this.activeAccount.username, this.activeAccount.id);
+      this.showToast("Universal Skin synchronized & forced into game options!");
+    } catch (e: any) {
+      this.showToast("Sync error: " + (e?.message || e));
+    }
+  }
+
+  async installSmpSkinMod() {
+    if (!this.activeInstance) {
+      this.showToast("Please choose or create a profile first!");
+      return;
+    }
+    this.isInstallingSmpSkinMod = true;
+    this.showToast("Installing SMP Skin Support Mod (CustomSkinLoader)...");
+    try {
+      const filename: string = await invoke("install_modrinth_mod", {
+        instanceId: this.activeInstance.id,
+        projectId: "customskinloader",
+        slug: "customskinloader",
+        title: "CustomSkinLoader",
+      });
+      this.showToast(`SMP Skin Support installed: ${filename}!`);
+      await this.loadInstalledMods();
+      await this.forceSyncUniversalSkin();
+    } catch (e: any) {
+      this.showToast("Installation error: " + (e?.message || e));
+    } finally {
+      this.isInstallingSmpSkinMod = false;
+    }
+  }
+
+  copySmpSkinCommand() {
+    if (!this.activeAccount) return;
+    const cmd = `/skin ${this.activeAccount.username}`;
+    navigator.clipboard.writeText(cmd);
+    this.showToast(`Command copied: ${cmd}`);
   }
 
   // --- Hardware & Java ---
@@ -889,6 +950,12 @@ export class LauncherState {
       if (this.settings.default_max_memory_mb) {
         if (this.activeInstance) {
           this.activeInstance.max_memory_mb = this.settings.default_max_memory_mb;
+          try {
+            await invoke("update_instance_memory", {
+              id: this.activeInstance.id,
+              maxMemoryMb: this.settings.default_max_memory_mb,
+            });
+          } catch (_) {}
         }
         for (const inst of this.instances) {
           if (inst.is_active || inst.max_memory_mb === 4096) {
@@ -1029,20 +1096,24 @@ export class LauncherState {
     this.gameStatus = "launching";
     this.launchStatusText = "Initializing launch sequence...";
     this.crashDetails = null;
+    this.hintDetails = null;
     this.hasManualCrash = false;
+    this.isCrashDismissed = false;
 
     try {
       await invoke("launch_game", { instanceId: this.activeInstance.id });
     } catch (e: any) {
-      this.gameStatus = "crashed";
-      this.hasManualCrash = true;
+      this.gameStatus = "idle";
+      this.hasManualCrash = false;
       const errStr = typeof e === "string" ? e : (e?.message || JSON.stringify(e));
-      this.launchStatusText = `Launch failed: ${errStr}`;
-      this.showToast(`Error: ${errStr}`);
+      this.launchStatusText = `Launch halted: ${errStr}`;
+      this.showToast(`Launch halted: ${errStr}`);
       try {
         const lastCrash: CrashAnalysis | null = await invoke("get_last_crash_analysis");
-        if (lastCrash) {
+        if (lastCrash && lastCrash.is_fatal) {
           this.crashDetails = lastCrash;
+          this.gameStatus = "crashed";
+          this.hasManualCrash = true;
         }
       } catch (_) {}
     }
@@ -1050,17 +1121,11 @@ export class LauncherState {
 
   // --- Log & Crash Management ---
   get hasCrashDetected(): boolean {
-    if (this.hasManualCrash || this.crashDetails !== null) return true;
-    return this.consoleLogs.some(l =>
-      l.includes("CrashReport") ||
-      l.includes("FATAL") ||
-      l.includes("A fatal error has been detected") ||
-      l.includes("Minecraft has crashed") ||
-      l.includes("Shutting down with exit code 1") ||
-      l.includes("Shutting down with exit code -1") ||
-      l.includes("Caused by:") ||
-      l.includes("[DV ERROR DETECTOR]")
-    );
+    if (this.isCrashDismissed) return false;
+    // Only detect crash if the process status is crashed AND there is an explicit fatal crash analysis
+    if (this.gameStatus !== "crashed") return false;
+    if (!this.crashDetails || this.crashDetails.is_fatal === false) return false;
+    return true;
   }
 
   get crashReportSnippet(): string {
@@ -1165,6 +1230,7 @@ export class LauncherState {
   }
 
   dismissCrash() {
+    this.isCrashDismissed = true;
     this.hasManualCrash = false;
     this.crashDetails = null;
     this.hintDetails = null;
@@ -1175,6 +1241,7 @@ export class LauncherState {
   }
 
   dismissHint() {
+    this.isCrashDismissed = true;
     this.hintDetails = null;
   }
 

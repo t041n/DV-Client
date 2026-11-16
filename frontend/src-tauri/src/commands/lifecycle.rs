@@ -145,9 +145,14 @@ pub async fn launch_game(
     let game_dir = inst.game_dir(config_clone.instances_dir());
     let _ = std::fs::create_dir_all(&game_dir);
 
-    // Sync instance mods
+    // Sync instance mods and in-game universal player skin/cape pack (with GUID and version compatibility)
     sync_instance_mods(&inst_dir, &game_dir);
-    let _ = dv_launcher::skins::ensure_in_game_skin_pack(&game_dir, &account.username);
+    let _ = dv_launcher::skins::ensure_in_game_skin_pack(
+        &game_dir,
+        &account.username,
+        Some(&account.id),
+        Some(&inst.minecraft_version),
+    );
 
     let handle_for_prog = app_handle.clone();
     let _ = handle_for_prog.emit("launch-status", "Verifying and downloading game assets...");
@@ -304,6 +309,8 @@ pub async fn launch_game(
             &inst.minecraft_version,
             config_clone.privacy.discord_show_version,
             config_clone.privacy.discord_show_elapsed_time,
+            None,
+            Some(&inst.mod_loader),
         );
     }
 
@@ -325,7 +332,7 @@ pub async fn launch_game(
             }
             Ok(code) => {
                 let analysis = sup.get_last_crash_analysis().await;
-                let is_real_crash = analysis.as_ref().map(|a| a.is_fatal).unwrap_or(code != 1 && code != -1);
+                let is_real_crash = analysis.as_ref().map(|a| a.is_fatal).unwrap_or(false);
 
                 if is_real_crash {
                     let _ = app_handle_bg.emit("game-state-change", "crashed");
@@ -340,7 +347,7 @@ pub async fn launch_game(
                     if let Some(ref a) = analysis {
                         let _ = app_handle_bg.emit("game-hint", serde_json::to_value(a).unwrap_or_default());
                     }
-                    let _ = app_handle_bg.emit("launch-status", format!("Session closed (exit code {})", code));
+                    let _ = app_handle_bg.emit("launch-status", "Session finished.");
                 }
 
                 // If window was hidden on launch, restore it
@@ -365,20 +372,37 @@ pub async fn launch_game(
     if !state.supervisor.is_active() {
         state.is_launching.store(false, Ordering::SeqCst);
         if let Some(analysis) = state.supervisor.get_last_crash_analysis().await {
-            let _ = app_handle.emit("game-state-change", "crashed");
-            let _ = app_handle.emit("game-crashed", serde_json::to_value(&analysis).unwrap_or_default());
-            return Err(format!(
-                "[{}]: {}. Suggested Fix: {}",
-                analysis.category, analysis.headline, analysis.recommended_action
-            ));
+            if analysis.is_fatal {
+                let _ = app_handle.emit("game-state-change", "crashed");
+                let _ = app_handle.emit("game-crashed", serde_json::to_value(&analysis).unwrap_or_default());
+                return Err(format!(
+                    "[{}]: {}. Suggested Fix: {}",
+                    analysis.category, analysis.headline, analysis.recommended_action
+                ));
+            } else {
+                let _ = app_handle.emit("game-state-change", "finished");
+                return Ok(());
+            }
         } else {
-            return Err("Minecraft process terminated immediately upon spawning. Check Live Console for details.".to_string());
+            let _ = app_handle.emit("game-state-change", "finished");
+            return Ok(());
         }
     }
 
     state.is_launching.store(false, Ordering::SeqCst);
     let _ = app_handle.emit("launch-status", "Minecraft is currently running");
     let _ = app_handle.emit("game-state-change", "running");
+
+    if config_clone.privacy.enable_discord_rpc {
+        let child_pid = state.supervisor.get_child_pid();
+        state.discord_rpc.set_playing_with_options(
+            &inst.minecraft_version,
+            config_clone.privacy.discord_show_version,
+            config_clone.privacy.discord_show_elapsed_time,
+            child_pid,
+            Some(&inst.mod_loader),
+        );
+    }
 
     // Update last_played on instance
     {
@@ -451,6 +475,26 @@ pub async fn get_latest_logs(
             .join("logs")
             .join("latest.log");
         if log_file.exists() {
+            if let Ok(metadata) = std::fs::metadata(&log_file) {
+                let file_len = metadata.len();
+                const MAX_LOG_BYTES: u64 = 1024 * 1024; // 1 MB cap to prevent IPC buffer blowout
+                if file_len > MAX_LOG_BYTES {
+                    use std::io::{Read, Seek, SeekFrom};
+                    if let Ok(mut f) = std::fs::File::open(&log_file) {
+                        if f.seek(SeekFrom::End(-(MAX_LOG_BYTES as i64))).is_ok() {
+                            let mut buffer = Vec::with_capacity(MAX_LOG_BYTES as usize);
+                            if f.read_to_end(&mut buffer).is_ok() {
+                                let text = String::from_utf8_lossy(&buffer);
+                                let clean_text = match text.find('\n') {
+                                    Some(pos) => &text[pos + 1..],
+                                    None => &text,
+                                };
+                                return Ok(clean_text.to_string());
+                            }
+                        }
+                    }
+                }
+            }
             if let Ok(content) = std::fs::read_to_string(&log_file) {
                 return Ok(content);
             }

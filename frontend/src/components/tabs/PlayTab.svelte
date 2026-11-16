@@ -186,59 +186,50 @@
     </div>
 
     <!-- Fatal Crash Alert Card (Only shown for real fatal errors) -->
-    {#if (launcher.gameStatus === "crashed" || launcher.hasCrashDetected) && launcher.crashDetails?.is_fatal !== false}
+    {#if !launcher.isCrashDismissed && launcher.hasCrashDetected}
       <div
-        class="relative z-10 p-4.5 rounded-2xl bg-rose-950/80 border border-rose-500/60 flex flex-col gap-3 shadow-2xl backdrop-blur-md animate-in fade-in duration-200"
+        class="relative z-10 p-4 sm:p-5 rounded-2xl bg-rose-950/85 border border-rose-500/50 shadow-2xl backdrop-blur-md animate-in fade-in duration-200"
       >
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div class="flex items-start gap-3 flex-1 min-w-0">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div class="flex items-start gap-3.5 flex-1 min-w-0">
             <div
               class="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0 mt-0.5"
             >
               <AlertTriangle class="w-5 h-5" />
             </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between gap-2">
-                <div class="text-sm font-bold text-white flex items-center gap-2 flex-wrap">
-                  <span>{launcher.crashDetails?.headline || "Minecraft Crash Detected"}</span>
-                  <span
-                    class="px-2 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase"
-                  >
-                    {launcher.crashDetails?.category || "Crash Alert"}
-                  </span>
-                </div>
-                <button
-                  onclick={() => launcher.dismissCrash()}
-                  class="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
-                  title="Dismiss alert"
+            <div class="flex-1 min-w-0 space-y-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-bold text-white tracking-tight">{launcher.crashDetails?.headline || "Minecraft Crash Detected"}</span>
+                <span
+                  class="px-2 py-0.5 rounded bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase tracking-wider"
                 >
-                  <X class="w-4 h-4" />
-                </button>
+                  {launcher.crashDetails?.category || "Crash Alert"}
+                </span>
               </div>
-              <p class="text-xs text-neutral-200 mt-1 leading-relaxed">
+              <p class="text-xs text-neutral-200 leading-relaxed pr-2">
                 {launcher.crashDetails?.explanation || "The game process terminated with an error. Review the Live Console or report diagnostics."}
               </p>
               {#if launcher.crashDetails?.recommended_action}
-                <div class="mt-2 text-xs text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded-lg px-3 py-1.5 flex items-center gap-2">
-                  <span class="font-bold uppercase tracking-wider text-[10px] text-amber-400">Fix:</span>
-                  <span>{launcher.crashDetails.recommended_action}</span>
+                <div class="mt-2 text-xs text-amber-200 bg-amber-950/50 border border-amber-500/35 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                  <span class="font-bold uppercase tracking-wider text-[10px] text-amber-400 shrink-0">Fix:</span>
+                  <span class="line-clamp-2">{launcher.crashDetails.recommended_action}</span>
                 </div>
               {/if}
             </div>
           </div>
 
-          <div class="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap justify-end">
+          <div class="flex items-center gap-2.5 w-full sm:w-auto shrink-0 flex-nowrap justify-start sm:justify-end pt-1 lg:pt-0">
             {#if launcher.crashDetails?.category?.includes("Java")}
               <button
                 onclick={() => (launcher.activeTab = "settings")}
-                class="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-900 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                class="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-900 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95 shrink-0"
               >
                 <span>Java Settings</span>
               </button>
             {:else if launcher.crashDetails?.category?.includes("Mod")}
               <button
                 onclick={() => (launcher.activeTab = "mods")}
-                class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95 shrink-0"
               >
                 <span>Mod Studio</span>
               </button>
@@ -247,7 +238,7 @@
             <button
               onclick={() => launcher.reportCrash()}
               disabled={launcher.isReportingCrash}
-              class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-rose-600/30"
+              class="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95 shrink-0"
             >
               {#if launcher.isReportingCrash}
                 <Loader2 class="w-3.5 h-3.5 animate-spin" />
@@ -263,23 +254,34 @@
 
             <button
               onclick={() => (launcher.activeTab = "console")}
-              class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-neutral-200 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-white/10"
+              class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-neutral-200 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-white/10 active:scale-95 shrink-0"
             >
               <Terminal class="w-3.5 h-3.5" />
               <span>Console</span>
+            </button>
+
+            <div class="hidden sm:block w-px h-6 bg-white/10 mx-0.5 shrink-0"></div>
+
+            <button
+              onclick={() => launcher.dismissCrash()}
+              class="p-2 rounded-xl bg-white/8 hover:bg-white/16 border border-white/10 text-neutral-400 hover:text-white flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
+              title="Dismiss alert"
+              aria-label="Dismiss alert"
+            >
+              <X class="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
     {/if}
 
-    <!-- Non-Fatal Session Hint Banner (For small warnings or normal exits) -->
-    {#if launcher.hintDetails || (launcher.crashDetails && launcher.crashDetails.is_fatal === false)}
-      {@const hint = launcher.hintDetails || launcher.crashDetails}
+    <!-- Non-Fatal Session Hint Banner (For small warnings or abnormal exits) -->
+    {#if !launcher.isCrashDismissed && launcher.hintDetails && launcher.hintDetails.exit_code !== 0}
+      {@const hint = launcher.hintDetails}
       <div
-        class="relative z-10 p-4 rounded-2xl bg-gradient-to-r from-neutral-900/90 via-[#131622]/90 to-[#0e1017]/90 border border-white/12 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl backdrop-blur-md animate-in fade-in duration-200"
+        class="relative z-10 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-neutral-900/90 via-[#131622]/90 to-[#0e1017]/90 border border-white/12 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl backdrop-blur-md animate-in fade-in duration-200"
       >
-        <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-center gap-3 min-w-0 pr-2">
           <div
             class="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0"
           >
@@ -298,18 +300,22 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+        <div class="flex items-center gap-2 shrink-0 flex-nowrap self-end sm:self-center">
           <button
             onclick={() => (launcher.activeTab = "console")}
-            class="px-3 py-1.5 rounded-lg bg-white/6 hover:bg-white/12 text-neutral-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-white/8"
+            class="px-3 py-1.5 rounded-lg bg-white/6 hover:bg-white/12 text-neutral-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-white/8 active:scale-95 shrink-0"
           >
             <Terminal class="w-3.5 h-3.5 text-neutral-400" />
             <span>View Logs</span>
           </button>
+
+          <div class="w-px h-5 bg-white/10 mx-0.5 shrink-0"></div>
+
           <button
             onclick={() => { launcher.dismissCrash(); launcher.dismissHint(); }}
-            class="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            class="p-2 rounded-xl bg-white/8 hover:bg-white/16 border border-white/10 text-neutral-400 hover:text-white flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
             title="Dismiss notice"
+            aria-label="Dismiss notice"
           >
             <X class="w-4 h-4" />
           </button>

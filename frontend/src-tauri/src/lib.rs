@@ -57,8 +57,10 @@ pub fn run() {
                 .unwrap_or_else(|_| {
                     let cfg = dv_launcher::config::LauncherConfig::default();
                     let file_path = fallback_dir.join("config.json");
-                    let _ = std::fs::write(&file_path, serde_json::to_string(&cfg).unwrap());
-                    ConfigManager::new(Some(file_path)).unwrap()
+                    if let Ok(json_str) = serde_json::to_string(&cfg) {
+                        let _ = std::fs::write(&file_path, json_str);
+                    }
+                    ConfigManager::with_config(file_path, cfg)
                 });
             let base = fallback_cfg.config.base_path().to_path_buf();
             let inst = fallback_cfg.config.instances_dir();
@@ -263,6 +265,7 @@ pub fn run() {
             apply_cape_base64,
             reset_skin,
             reset_cape,
+            force_sync_skin_to_instances,
             launch_game,
             stop_game,
             get_game_status,

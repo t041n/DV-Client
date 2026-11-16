@@ -314,7 +314,10 @@ impl MicrosoftAuthClient {
             return Err(AuthError::Protocol(err_msg.to_string()));
         }
 
-        let digest = md5_hash(format!("OfflinePlayer:{}", username).as_bytes());
+        let mut digest = md5_hash(format!("OfflinePlayer:{}", username).as_bytes());
+        // Java UUID.nameUUIDFromBytes standard: version 3 (MD5), IETF variant
+        digest[6] = (digest[6] & 0x0f) | 0x30;
+        digest[8] = (digest[8] & 0x3f) | 0x80;
         let hex_str = hex::encode(digest);
         let formatted_uuid = format!(
             "{}-{}-{}-{}-{}",
@@ -521,7 +524,7 @@ impl MicrosoftAuthClient {
 }
 
 /// Simple MD5 implementation for standard offline Minecraft player UUID derivation.
-fn md5_hash(data: &[u8]) -> [u8; 16] {
+pub fn md5_hash(data: &[u8]) -> [u8; 16] {
     // Standard MD5 constants and round operations
     let mut state = [0x67452301u32, 0xefcdab89u32, 0x98badcfeu32, 0x10325476u32];
     let len = data.len();

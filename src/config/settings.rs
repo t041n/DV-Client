@@ -304,6 +304,13 @@ pub struct ConfigManager {
 }
 
 impl ConfigManager {
+    pub fn with_config(config_file: PathBuf, config: LauncherConfig) -> Self {
+        Self {
+            config_file,
+            config,
+        }
+    }
+
     pub fn new<P: AsRef<Path>>(config_file: Option<P>) -> Result<Self, ConfigError> {
         let file_path = match config_file {
             Some(p) => p.as_ref().to_path_buf(),

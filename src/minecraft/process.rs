@@ -9,7 +9,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -42,6 +42,8 @@ pub struct ProcessSupervisor {
     pub output_tx: broadcast::Sender<String>,
     pub state_tx: broadcast::Sender<ProcessState>,
     is_running: Arc<AtomicBool>,
+    is_terminating: Arc<AtomicBool>,
+    child_pid: Arc<AtomicU32>,
     pub last_crash_analysis: Arc<Mutex<Option<super::error_detector::CrashAnalysis>>>,
 }
 
@@ -61,7 +63,18 @@ impl ProcessSupervisor {
             output_tx,
             state_tx,
             is_running: Arc::new(AtomicBool::new(false)),
+            is_terminating: Arc::new(AtomicBool::new(false)),
+            child_pid: Arc::new(AtomicU32::new(0)),
             last_crash_analysis: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub fn get_child_pid(&self) -> Option<u32> {
+        let p = self.child_pid.load(Ordering::SeqCst);
+        if p > 0 {
+            Some(p)
+        } else {
+            None
         }
     }
 
@@ -109,6 +122,8 @@ impl ProcessSupervisor {
         let log_file = logs_dir.join("latest.log");
 
         self.clear_last_crash_analysis().await;
+        self.is_terminating.store(false, Ordering::SeqCst);
+        let process_start_time = std::time::SystemTime::now();
         let _ = self.state_tx.send(ProcessState::Starting);
         self.is_running.store(true, Ordering::SeqCst);
 
@@ -139,10 +154,23 @@ impl ProcessSupervisor {
             info!("Applied process environment: {}={}", k, v);
         }
 
-        let mut child = cmd.spawn()?;
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                self.child_pid.store(0, Ordering::SeqCst);
+                self.is_running.store(false, Ordering::SeqCst);
+                self.is_terminating.store(false, Ordering::SeqCst);
+                let _ = self.state_tx.send(ProcessState::Stopped);
+                let _ = self
+                    .output_tx
+                    .send(format!("[DV] Failed to spawn process: {}\n", e));
+                return Err(ProcessError::Io(e));
+            }
+        };
 
-        #[cfg(target_os = "windows")]
         if let Some(pid) = child.id() {
+            self.child_pid.store(pid, Ordering::SeqCst);
+            #[cfg(target_os = "windows")]
             assign_child_to_kill_on_close_job(pid);
         }
 
@@ -233,20 +261,40 @@ impl ProcessSupervisor {
             }
         };
 
+        let was_terminating = self.is_terminating.swap(false, Ordering::SeqCst);
         self.is_running.store(false, Ordering::SeqCst);
+        self.child_pid.store(0, Ordering::SeqCst);
 
-        let code = exit_status.and_then(|s| s.code()).unwrap_or(-1);
-
-        if code == 0 {
-            info!("Game process exited cleanly with code 0");
+        if was_terminating {
+            info!("Game process intentionally stopped by user");
             let _ = self
                 .output_tx
-                .send("[DV] Process exited cleanly.\n".to_string());
-            let _ = self.state_tx.send(ProcessState::Exited(0));
+                .send("[DV] Process stopped by user.\n".to_string());
+            let _ = self.state_tx.send(ProcessState::Stopped);
+            return Ok(0);
+        }
+
+        let code = exit_status.and_then(|s| s.code()).unwrap_or(0);
+        let recent_lines: Vec<String> = rolling_buffer.lock().await.iter().cloned().collect();
+        let analysis = super::error_detector::ErrorDetector::analyze(
+            code,
+            &recent_lines,
+            &game_dir,
+            Some(process_start_time),
+        );
+
+        if code == 0 || !analysis.is_fatal {
+            info!("Game process finished cleanly with exit code: {}", code);
+            let _ = self
+                .output_tx
+                .send(format!("[DV] Process exited (code {}).\n", code));
+            {
+                let mut last = self.last_crash_analysis.lock().await;
+                *last = Some(analysis);
+            }
+            let _ = self.state_tx.send(ProcessState::Exited(code));
         } else {
-            error!("Game process exited with error code: {}", code);
-            let recent_lines: Vec<String> = rolling_buffer.lock().await.iter().cloned().collect();
-            let analysis = super::error_detector::ErrorDetector::analyze(code, &recent_lines, &game_dir);
+            error!("Game process crashed with error code: {}", code);
             let ansi_summary = analysis.to_ansi_summary();
             let _ = self.output_tx.send(ansi_summary);
             let _ = self
@@ -264,11 +312,13 @@ impl ProcessSupervisor {
 
     /// Forcibly terminate the running game process.
     pub async fn terminate(&self) {
+        self.is_terminating.store(true, Ordering::SeqCst);
         let mut handle = self.child_handle.lock().await;
         if let Some(mut child) = handle.take() {
             let _ = child.kill().await;
             info!("Terminated child game process");
         }
+        self.child_pid.store(0, Ordering::SeqCst);
         self.is_running.store(false, Ordering::SeqCst);
         let _ = self.state_tx.send(ProcessState::Stopped);
     }

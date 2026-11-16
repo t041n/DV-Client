@@ -734,7 +734,7 @@
           Discord Rich Presence (RPC)
         </div>
         <div class="text-xs text-neutral-300">
-          Shows "Playing Minecraft via Digital Vigital" in your Discord status
+          Shows "Playing Minecraft on DV Client" with custom DV logo in your Discord status
         </div>
       </div>
       <input

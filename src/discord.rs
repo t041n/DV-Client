@@ -20,6 +20,7 @@ pub enum DiscordAction {
         state: String,
         details: String,
         start_time: Option<u64>,
+        pid: Option<u32>,
     },
     ClearActivity,
     Shutdown,
@@ -52,14 +53,15 @@ impl DiscordRpcHandle {
 
     pub fn set_in_launcher(&self) {
         let _ = self.tx.send(DiscordAction::SetActivity {
-            state: "In Launcher (Idle)".to_string(),
+            state: "In Launcher • Idle".to_string(),
             details: branding::DISCORD_RPC_DETAILS.to_string(),
             start_time: None,
+            pid: None,
         });
     }
 
     pub fn set_playing(&self, mc_version: &str) {
-        self.set_playing_with_options(mc_version, true, true);
+        self.set_playing_with_options(mc_version, true, true, None, None);
     }
 
     pub fn set_playing_with_options(
@@ -67,6 +69,8 @@ impl DiscordRpcHandle {
         mc_version: &str,
         show_version: bool,
         show_elapsed: bool,
+        game_pid: Option<u32>,
+        mod_loader: Option<&str>,
     ) {
         let now = if show_elapsed {
             Some(
@@ -79,16 +83,24 @@ impl DiscordRpcHandle {
             None
         };
 
+        let loader_info = match mod_loader {
+            Some(l) if !l.trim().is_empty() && l.to_lowercase() != "vanilla" => {
+                format!(" ({})", l.trim())
+            }
+            _ => String::new(),
+        };
+
         let state_text = if show_version && !mc_version.trim().is_empty() {
-            format!("Playing Minecraft {}", mc_version.trim())
+            format!("Minecraft {}{} • DV Turbo", mc_version.trim(), loader_info)
         } else {
-            "Playing Minecraft".to_string()
+            "DV Turbo Engine • Active".to_string()
         };
 
         let _ = self.tx.send(DiscordAction::SetActivity {
             state: state_text,
             details: branding::DISCORD_RPC_DETAILS.to_string(),
             start_time: now,
+            pid: game_pid,
         });
     }
 
@@ -165,6 +177,14 @@ async fn read_ipc_frame<R: tokio::io::AsyncReadExt + Unpin>(
     reader.read_exact(&mut header).await?;
     let opcode = u32::from_le_bytes([header[0], header[1], header[2], header[3]]);
     let length = u32::from_le_bytes([header[4], header[5], header[6], header[7]]) as usize;
+
+    // Discord IPC messages are typically under a few kilobytes; cap at 64 KB to prevent OOM
+    if length > 65536 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Discord IPC frame exceeds safety limit: {} bytes", length),
+        ));
+    }
 
     let mut buf = vec![0u8; length];
     reader.read_exact(&mut buf).await?;
@@ -248,19 +268,21 @@ async fn dispatch_activity<S: tokio::io::AsyncWriteExt + tokio::io::AsyncReadExt
             state,
             details,
             start_time,
+            pid: custom_pid,
         } => {
+            let target_pid = custom_pid.unwrap_or(pid);
             let mut activity = json!({
                 "details": details,
                 "state": state,
                 "assets": {
                     "large_image": DISCORD_LOGO_URL,
-                    "large_text": "Digital Vigital (DV) Launcher",
+                    "large_text": "DV Client (Digital Vigital)",
                     "small_image": DISCORD_LOGO_URL,
-                    "small_text": "Digital Vigital"
+                    "small_text": "DV Turbo Engine"
                 },
                 "buttons": [
                     {
-                        "label": "Play Minecraft",
+                        "label": "Play on DV Client",
                         "url": "https://digitalvigital.fun/minecraft"
                     },
                     {
@@ -277,7 +299,7 @@ async fn dispatch_activity<S: tokio::io::AsyncWriteExt + tokio::io::AsyncReadExt
             json!({
                 "cmd": "SET_ACTIVITY",
                 "args": {
-                    "pid": pid,
+                    "pid": target_pid,
                     "activity": activity
                 },
                 "nonce": uuid::Uuid::new_v4().to_string()

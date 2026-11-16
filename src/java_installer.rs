@@ -362,6 +362,9 @@ impl JavaInstaller {
             }
         }
 
+        // Drop archive and close underlying file descriptor before deleting on Windows
+        drop(archive);
+
         // Clean up temporary download file
         let _ = fs::remove_file(&zip_temp_path);
 

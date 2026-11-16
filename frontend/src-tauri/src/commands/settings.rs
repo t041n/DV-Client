@@ -184,7 +184,8 @@ pub async fn save_settings(settings: SettingsDto, state: State<'_, AppState>) ->
     cm.config.privacy.enable_discord_rpc = settings.enable_discord_rpc;
     if settings.enable_discord_rpc {
         if state.supervisor.is_active() {
-            state.discord_rpc.set_playing("Minecraft");
+            let pid = state.supervisor.get_child_pid();
+            state.discord_rpc.set_playing_with_options("Minecraft", true, true, pid, None);
         } else {
             state.discord_rpc.set_in_launcher();
         }

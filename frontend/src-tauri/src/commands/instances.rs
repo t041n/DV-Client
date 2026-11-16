@@ -163,6 +163,13 @@ pub async fn create_instance(
 
 #[tauri::command]
 pub async fn delete_instance(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    if state.supervisor.is_active() {
+        let cm = state.config_mgr.lock().await;
+        if cm.config.active_instance_id.as_deref() == Some(&id) {
+            return Err("Cannot delete instance while Minecraft is running. Please stop the game first.".to_string());
+        }
+    }
+
     let mut mgr = state.instance_mgr.lock().await;
     mgr.delete_instance(&id).map_err(|e| e.to_string())?;
 

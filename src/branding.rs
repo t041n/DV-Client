@@ -24,7 +24,7 @@ pub const SUPPORT_URL: &str = "https://discord.gg/flex-dv";
 pub const SECURITY_CONTACT: &str = "admin@digitalvigital.fun";
 
 // Discord Rich Presence details string
-pub const DISCORD_RPC_DETAILS: &str = "Minecraft via Digital Vigital";
+pub const DISCORD_RPC_DETAILS: &str = "Playing Minecraft on DV Client";
 
 // Brand Color Palette (Obsidian Black, Crimson Red & Translucent Glass)
 pub const COLOR_BG_PRIMARY: &str = "#0B0C10"; // Deep Obsidian Void

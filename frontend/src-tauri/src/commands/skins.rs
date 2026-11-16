@@ -53,12 +53,15 @@ fn fast_base64_encode(data: &[u8]) -> String {
 }
 
 #[tauri::command]
-pub async fn get_player_skin(username: Option<String>) -> Result<PlayerSkinPayload, String> {
-    let skin_path = dv_launcher::skins::get_active_skin_path(username.as_deref());
+pub async fn get_player_skin(
+    username: Option<String>,
+    uuid: Option<String>,
+) -> Result<PlayerSkinPayload, String> {
+    let skin_path = dv_launcher::skins::get_active_skin_path(username.as_deref(), uuid.as_deref());
     let skin_bytes = std::fs::read(&skin_path).map_err(|e| format!("Failed to read skin file: {}", e))?;
     let skin_data_url = format!("data:image/png;base64,{}", fast_base64_encode(&skin_bytes));
 
-    let cape_data_url = if let Some(cape_path) = dv_launcher::skins::get_active_cape_path(username.as_deref()) {
+    let cape_data_url = if let Some(cape_path) = dv_launcher::skins::get_active_cape_path(username.as_deref(), uuid.as_deref()) {
         if let Ok(cape_bytes) = std::fs::read(&cape_path) {
             Some(format!("data:image/png;base64,{}", fast_base64_encode(&cape_bytes)))
         } else {
@@ -75,27 +78,79 @@ pub async fn get_player_skin(username: Option<String>) -> Result<PlayerSkinPaylo
 }
 
 #[tauri::command]
-pub async fn reset_skin(username: String) -> Result<PlayerSkinPayload, String> {
-    dv_launcher::skins::reset_player_skin(&username);
-    get_player_skin(Some(username)).await
+pub async fn reset_skin(
+    username: String,
+    uuid: Option<String>,
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<PlayerSkinPayload, String> {
+    dv_launcher::skins::reset_player_skin(&username, uuid.as_deref());
+    let instances_dir = {
+        let cm = state.config_mgr.lock().await;
+        cm.config.instances_dir()
+    };
+    dv_launcher::skins::sync_universal_skin_to_instances(&instances_dir, &username, uuid.as_deref());
+    get_player_skin(Some(username), uuid).await
 }
 
 #[tauri::command]
-pub async fn reset_cape(username: String) -> Result<PlayerSkinPayload, String> {
-    dv_launcher::skins::reset_player_cape(&username);
-    get_player_skin(Some(username)).await
+pub async fn reset_cape(
+    username: String,
+    uuid: Option<String>,
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<PlayerSkinPayload, String> {
+    dv_launcher::skins::reset_player_cape(&username, uuid.as_deref());
+    let instances_dir = {
+        let cm = state.config_mgr.lock().await;
+        cm.config.instances_dir()
+    };
+    dv_launcher::skins::sync_universal_skin_to_instances(&instances_dir, &username, uuid.as_deref());
+    get_player_skin(Some(username), uuid).await
 }
 
 #[tauri::command]
-pub async fn apply_skin(username: String, file_path: String) -> Result<PlayerSkinPayload, String> {
-    dv_launcher::skins::save_custom_skin(&username, &file_path).map_err(|e| e.to_string())?;
-    get_player_skin(Some(username)).await
+pub async fn apply_skin(
+    username: String,
+    uuid: Option<String>,
+    file_path: String,
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<PlayerSkinPayload, String> {
+    dv_launcher::skins::save_custom_skin(&username, uuid.as_deref(), &file_path).map_err(|e| e.to_string())?;
+    let instances_dir = {
+        let cm = state.config_mgr.lock().await;
+        cm.config.instances_dir()
+    };
+    dv_launcher::skins::sync_universal_skin_to_instances(&instances_dir, &username, uuid.as_deref());
+    get_player_skin(Some(username), uuid).await
 }
 
 #[tauri::command]
-pub async fn apply_cape(username: String, file_path: String) -> Result<PlayerSkinPayload, String> {
-    dv_launcher::skins::save_custom_cape(&username, &file_path).map_err(|e| e.to_string())?;
-    get_player_skin(Some(username)).await
+pub async fn apply_cape(
+    username: String,
+    uuid: Option<String>,
+    file_path: String,
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<PlayerSkinPayload, String> {
+    dv_launcher::skins::save_custom_cape(&username, uuid.as_deref(), &file_path).map_err(|e| e.to_string())?;
+    let instances_dir = {
+        let cm = state.config_mgr.lock().await;
+        cm.config.instances_dir()
+    };
+    dv_launcher::skins::sync_universal_skin_to_instances(&instances_dir, &username, uuid.as_deref());
+    get_player_skin(Some(username), uuid).await
+}
+
+#[tauri::command]
+pub async fn force_sync_skin_to_instances(
+    username: String,
+    uuid: Option<String>,
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<String, String> {
+    let instances_dir = {
+        let cm = state.config_mgr.lock().await;
+        cm.config.instances_dir()
+    };
+    dv_launcher::skins::sync_universal_skin_to_instances(&instances_dir, &username, uuid.as_deref());
+    Ok("Universal skin synchronized to all instances & options.txt!".to_string())
 }
 
 fn decode_base64(input: &str) -> Result<Vec<u8>, String> {
@@ -133,7 +188,12 @@ fn decode_base64(input: &str) -> Result<Vec<u8>, String> {
 }
 
 #[tauri::command]
-pub async fn apply_skin_base64(username: String, base64_data: String) -> Result<PlayerSkinPayload, String> {
+pub async fn apply_skin_base64(
+    username: String,
+    uuid: Option<String>,
+    base64_data: String,
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<PlayerSkinPayload, String> {
     let clean_b64 = if let Some(idx) = base64_data.find(',') {
         &base64_data[idx + 1..]
     } else {
@@ -143,14 +203,26 @@ pub async fn apply_skin_base64(username: String, base64_data: String) -> Result<
     let bytes = decode_base64(clean_b64)?;
     let temp_path = std::env::temp_dir().join(format!("dv_skin_{}.png", username));
     std::fs::write(&temp_path, &bytes).map_err(|e| e.to_string())?;
-    let res = dv_launcher::skins::save_custom_skin(&username, &temp_path);
+    let res = dv_launcher::skins::save_custom_skin(&username, uuid.as_deref(), &temp_path);
     let _ = std::fs::remove_file(&temp_path);
     res.map_err(|e| e.to_string())?;
-    get_player_skin(Some(username)).await
+
+    let instances_dir = {
+        let cm = state.config_mgr.lock().await;
+        cm.config.instances_dir()
+    };
+    dv_launcher::skins::sync_universal_skin_to_instances(&instances_dir, &username, uuid.as_deref());
+
+    get_player_skin(Some(username), uuid).await
 }
 
 #[tauri::command]
-pub async fn apply_cape_base64(username: String, base64_data: String) -> Result<PlayerSkinPayload, String> {
+pub async fn apply_cape_base64(
+    username: String,
+    uuid: Option<String>,
+    base64_data: String,
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<PlayerSkinPayload, String> {
     let clean_b64 = if let Some(idx) = base64_data.find(',') {
         &base64_data[idx + 1..]
     } else {
@@ -160,8 +232,15 @@ pub async fn apply_cape_base64(username: String, base64_data: String) -> Result<
     let bytes = decode_base64(clean_b64)?;
     let temp_path = std::env::temp_dir().join(format!("dv_cape_{}.png", username));
     std::fs::write(&temp_path, &bytes).map_err(|e| e.to_string())?;
-    let res = dv_launcher::skins::save_custom_cape(&username, &temp_path);
+    let res = dv_launcher::skins::save_custom_cape(&username, uuid.as_deref(), &temp_path);
     let _ = std::fs::remove_file(&temp_path);
     res.map_err(|e| e.to_string())?;
-    get_player_skin(Some(username)).await
+
+    let instances_dir = {
+        let cm = state.config_mgr.lock().await;
+        cm.config.instances_dir()
+    };
+    dv_launcher::skins::sync_universal_skin_to_instances(&instances_dir, &username, uuid.as_deref());
+
+    get_player_skin(Some(username), uuid).await
 }

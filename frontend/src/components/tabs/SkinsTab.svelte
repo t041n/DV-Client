@@ -2,8 +2,8 @@
   import { onMount, onDestroy } from "svelte";
   import { launcher } from "../../state/launcher.svelte";
   import * as skinview3d from "skinview3d";
+  import { DirectionalLight } from "three";
   import {
-    CAPE_PRESETS,
     type SkinModelType,
     type SkinAnimationType,
   } from "../../constants/skins";
@@ -15,11 +15,7 @@
     Layers,
     Sparkles,
     Trash2,
-    Compass,
-    Eye,
-    EyeOff,
     Download,
-    Search,
     Play,
     Pause,
     Palette,
@@ -27,23 +23,32 @@
     Loader2,
     Sparkle,
     Shirt,
-    Crown,
     ArrowUpRight,
+    Copy,
+    Fingerprint,
+    Info,
+    Globe,
+    RefreshCw,
+    CheckCircle2,
+    Zap,
   } from "lucide-svelte";
 
   let canvasEl: HTMLCanvasElement | null = $state(null);
   let viewer: skinview3d.SkinViewer | null = $state(null);
-  let activeSubTab = $state<"studio" | "capes" | "stealer">("studio");
 
   let animationMode = $state<SkinAnimationType>("walk");
   let animationSpeed = $state(0.8);
   let isPaused = $state(false);
   let isAutoRotating = $state(false);
   let modelType = $state<SkinModelType>("classic");
-  let showCapeOnModel = $state(true);
 
-  let searchUsername = $state("");
   let isDraggingFile = $state(false);
+
+  function copyGuidToClipboard() {
+    if (!launcher.activeAccount?.id) return;
+    navigator.clipboard.writeText(launcher.activeAccount.id);
+    launcher.showToast(`Account GUID copied: ${launcher.activeAccount.id}`);
+  }
 
   function initViewer() {
     if (!canvasEl) return;
@@ -66,14 +71,27 @@
 
       viewer.fov = 70;
       viewer.zoom = 0.92;
-      viewer.globalLight.intensity = 0.9;
-      viewer.cameraLight.intensity = 0.7;
+
+      // Studio-grade balanced lighting: Bright, crisp, and vibrant without dark muddiness
+      viewer.globalLight.intensity = 2.4;
+      viewer.cameraLight.intensity = 1.8;
+
+      // Key light: crisp highlights from top-right front
+      const keyLight = new DirectionalLight(0xffffff, 1.3);
+      keyLight.position.set(20, 50, 40);
+      viewer.scene.add(keyLight);
+
+      // Fill light: soft cool fill to illuminate left and lower shadow zones
+      const fillLight = new DirectionalLight(0xedf2ff, 0.9);
+      fillLight.position.set(-20, 20, 30);
+      viewer.scene.add(fillLight);
+
+      // Rim light: warm back-light to outline character shoulders and hair edges
+      const rimLight = new DirectionalLight(0xffecd2, 0.8);
+      rimLight.position.set(0, 30, -40);
+      viewer.scene.add(rimLight);
 
       applyAnimation(animationMode);
-
-      if (launcher.activeCapeDataUrl && showCapeOnModel) {
-        viewer.loadCape(launcher.activeCapeDataUrl);
-      }
     } catch (e) {
       console.warn("Could not initialize 3D skin viewer:", e);
     }
@@ -131,34 +149,13 @@
     }
   }
 
-  function toggleCapeVisibility() {
-    showCapeOnModel = !showCapeOnModel;
-    if (!viewer) return;
-    if (showCapeOnModel && launcher.activeCapeDataUrl) {
-      viewer.loadCape(launcher.activeCapeDataUrl);
-    } else {
-      viewer.loadCape(null);
-    }
-  }
-
-  // Reactively update 3D skin & cape when launcher state changes
+  // Reactively update 3D skin when launcher state changes
   $effect(() => {
     const skin = launcher.activeSkinDataUrl;
     if (viewer && skin) {
       viewer.loadSkin(skin, {
         model: modelType === "slim" ? "slim" : "default",
       });
-    }
-  });
-
-  $effect(() => {
-    const cape = launcher.activeCapeDataUrl;
-    if (viewer) {
-      if (cape && showCapeOnModel) {
-        viewer.loadCape(cape);
-      } else {
-        viewer.loadCape(null);
-      }
     }
   });
 
@@ -200,16 +197,7 @@
     const reader = new FileReader();
     reader.onload = async () => {
       const dataUrl = reader.result as string;
-      // Heuristic: capes are usually 64x32 or 22x17, skins are 64x64 or 64x32
-      const img = new Image();
-      img.onload = async () => {
-        if (img.width === 64 && img.height === 32 && file.name.toLowerCase().includes("cape")) {
-          await launcher.applyCapeBase64(dataUrl);
-        } else {
-          await launcher.applySkinBase64(dataUrl);
-        }
-      };
-      img.src = dataUrl;
+      await launcher.applySkinBase64(dataUrl);
     };
     reader.readAsDataURL(file);
   }
@@ -232,66 +220,53 @@
         <div class="w-8 h-8 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
           <Shirt class="w-4 h-4" />
         </div>
-        <span>Skins & Capes Studio</span>
+        <span>Minecraft Skin Studio</span>
       </h2>
       <p class="text-xs text-neutral-300 mt-1 font-medium">
-        High-performance 3D player customization with real-time pose physics, cape cosmetics, and preset collections.
+        Customize player skins with real-time 3D rendering and in-game backward compatibility across all versions.
       </p>
     </div>
 
-    <!-- Active Player Badge -->
+    <!-- Active Player & GUID Badge -->
     {#if launcher.activeAccount}
-      <div class="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/4 border border-white/8 shadow-md">
-        <div class="w-8 h-8 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-300 font-black text-xs">
-          {launcher.activeAccount.username.substring(0, 2).toUpperCase()}
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/4 border border-white/8 shadow-md">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-300 font-black text-xs shrink-0">
+            {launcher.activeAccount.username.substring(0, 2).toUpperCase()}
+          </div>
+          <div>
+            <div class="text-xs font-bold text-white flex items-center gap-1.5">
+              <span>{launcher.activeAccount.username}</span>
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            </div>
+            <div class="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold">
+              {launcher.activeAccount.account_type === "microsoft" ? "Microsoft" : "Offline"} Profile
+            </div>
+          </div>
         </div>
-        <div>
-          <div class="text-xs font-bold text-white flex items-center gap-1.5">
-            <span>{launcher.activeAccount.username}</span>
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+
+        <div class="hidden sm:block h-6 w-px bg-white/10"></div>
+
+        <!-- GUID / UUID Badge with Quick Copy -->
+        <div class="flex items-center gap-2 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/6">
+          <Fingerprint class="w-3.5 h-3.5 text-red-400 shrink-0" />
+          <div class="flex flex-col">
+            <span class="text-[9px] text-neutral-400 uppercase tracking-widest font-mono font-bold">Account GUID</span>
+            <span class="text-[11px] text-neutral-200 font-mono font-semibold truncate max-w-[150px] md:max-w-[190px]">
+              {launcher.activeAccount.id}
+            </span>
           </div>
-          <div class="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold">
-            {launcher.activeAccount.account_type === "microsoft" ? "Microsoft" : "Offline"} Profile
-          </div>
+          <button
+            type="button"
+            onclick={copyGuidToClipboard}
+            class="p-1 rounded-lg hover:bg-white/10 text-neutral-400 hover:text-white transition-colors cursor-pointer ml-1"
+            title="Copy Account GUID / UUID"
+          >
+            <Copy class="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     {/if}
-  </div>
-
-  <!-- Studio Sub-Navigation Tabs -->
-  <div class="flex items-center gap-2 border-b border-white/8 pb-3">
-    <button
-      type="button"
-      onclick={() => (activeSubTab = "studio")}
-      class="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer {activeSubTab === 'studio'
-        ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
-        : 'bg-white/4 hover:bg-white/8 text-neutral-400 hover:text-white border border-white/6'}"
-    >
-      <Compass class="w-3.5 h-3.5" />
-      <span>Studio & 3D Stage</span>
-    </button>
-
-    <button
-      type="button"
-      onclick={() => (activeSubTab = "capes")}
-      class="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer {activeSubTab === 'capes'
-        ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
-        : 'bg-white/4 hover:bg-white/8 text-neutral-400 hover:text-white border border-white/6'}"
-    >
-      <Crown class="w-3.5 h-3.5" />
-      <span>Capes Collection</span>
-    </button>
-
-    <button
-      type="button"
-      onclick={() => (activeSubTab = "stealer")}
-      class="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer {activeSubTab === 'stealer'
-        ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
-        : 'bg-white/4 hover:bg-white/8 text-neutral-400 hover:text-white border border-white/6'}"
-    >
-      <Search class="w-3.5 h-3.5" />
-      <span>Player Skin Lookup</span>
-    </button>
   </div>
 
   <!-- Main Grid Layout -->
@@ -445,14 +420,14 @@
             {/if}
           </div>
 
-          <!-- Arm Model Type + Cape Visibility -->
-          <div class="flex items-center justify-between gap-2 pt-1">
-            <div class="flex items-center gap-1 bg-white/4 p-1 rounded-xl border border-white/6 flex-1">
+          <!-- Arm Model Type Selection -->
+          <div class="pt-1 w-full">
+            <div class="flex items-center gap-1 bg-white/4 p-1 rounded-xl border border-white/6 w-full">
               <button
                 type="button"
                 onclick={() => setModelType("classic")}
-                class="flex-1 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer {modelType === 'classic'
-                  ? 'bg-white/15 text-white border border-white/20'
+                class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {modelType === 'classic'
+                  ? 'bg-white/15 text-white border border-white/20 shadow-sm'
                   : 'text-neutral-400 hover:text-white'}"
               >
                 Classic 4px
@@ -460,30 +435,13 @@
               <button
                 type="button"
                 onclick={() => setModelType("slim")}
-                class="flex-1 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer {modelType === 'slim'
-                  ? 'bg-white/15 text-white border border-white/20'
+                class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {modelType === 'slim'
+                  ? 'bg-white/15 text-white border border-white/20 shadow-sm'
                   : 'text-neutral-400 hover:text-white'}"
               >
                 Slim 3px
               </button>
             </div>
-
-            <button
-              type="button"
-              onclick={toggleCapeVisibility}
-              class="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer {showCapeOnModel
-                ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
-                : 'bg-white/5 text-neutral-400 border border-white/8'}"
-              title="Toggle Cape Display on 3D Stage"
-            >
-              {#if showCapeOnModel}
-                <Eye class="w-3.5 h-3.5 text-purple-400" />
-                <span>Cape</span>
-              {:else}
-                <EyeOff class="w-3.5 h-3.5 text-neutral-500" />
-                <span>Cape</span>
-              {/if}
-            </button>
           </div>
         </div>
       </div>
@@ -491,224 +449,255 @@
 
     <!-- Right: Content Panes (7 Cols) -->
     <div class="lg:col-span-7 space-y-5">
-      <!-- SUB-TAB 1: STUDIO & ACTIVE SKIN -->
-      {#if activeSubTab === "studio"}
-        <!-- Active Custom Skin & Cape Uploader Card -->
-        <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-4">
-          <div class="flex items-center justify-between pb-3 border-b border-white/8">
-            <div class="flex items-center gap-2 text-white font-bold text-sm uppercase tracking-wider">
-              <Upload class="w-4 h-4 text-red-500" />
-              <span>Apply Custom Textures</span>
+      <!-- GUID & In-Game Universal Sync Status Banner -->
+      <div class="p-5 rounded-2xl bg-gradient-to-r from-red-950/40 via-[#0e1017] to-neutral-900/60 border border-red-500/30 shadow-lg space-y-3">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
+              <Shield class="w-4 h-4" />
             </div>
-            <button
-              type="button"
-              onclick={downloadCurrentSkin}
-              class="text-xs text-neutral-400 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Download your active skin texture PNG"
-            >
-              <Download class="w-3.5 h-3.5" />
-              <span>Save PNG</span>
-            </button>
+            <div>
+              <h4 class="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <span>Universal In-Game Skin Sync</span>
+                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase tracking-widest">
+                  Active
+                </span>
+              </h4>
+              <p class="text-[11px] text-neutral-300 mt-0.5 leading-relaxed">
+                Your custom skin is mapped to your account GUID <span class="font-mono text-red-300 font-bold">({launcher.activeAccount?.id ? launcher.activeAccount.id.substring(0, 13) + '...' : 'Local'})</span> and automatically injected for all Minecraft versions (1.5 - 1.21+) across Vanilla, Fabric, Forge, NeoForge, and Quilt.
+              </p>
+            </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Skin Uploader -->
-            <button
-              type="button"
-              onclick={() => launcher.pickAndApplySkin()}
-              class="p-5 rounded-2xl bg-white/2 hover:bg-red-500/10 border border-white/8 hover:border-red-500/30 text-left transition-all cursor-pointer group flex flex-col justify-between"
-            >
-              <div>
-                <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 group-hover:scale-105 transition-transform mb-3">
-                  <Shirt class="w-5 h-5" />
-                </div>
-                <div class="text-sm font-bold text-white group-hover:text-red-400 transition-colors">
-                  Choose Skin File
-                </div>
-                <p class="text-xs text-neutral-400 mt-1 leading-relaxed">
-                  Select any standard 64x64 PNG Minecraft skin. Drag & drop directly onto the 3D model also supported.
-                </p>
-              </div>
-
-              <div class="mt-4 flex items-center gap-1.5 text-xs text-red-400 font-bold uppercase tracking-wider">
-                <span>Browse File</span>
-                <ArrowUpRight class="w-3.5 h-3.5" />
-              </div>
-            </button>
-
-            <!-- Cape Uploader -->
-            <button
-              type="button"
-              onclick={() => launcher.pickAndApplyCape()}
-              class="p-5 rounded-2xl bg-white/2 hover:bg-purple-500/10 border border-white/8 hover:border-purple-500/30 text-left transition-all cursor-pointer group flex flex-col justify-between"
-            >
-              <div>
-                <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform mb-3">
-                  <Crown class="w-5 h-5" />
-                </div>
-                <div class="text-sm font-bold text-white group-hover:text-purple-400 transition-colors">
-                  Choose Cape File
-                </div>
-                <p class="text-xs text-neutral-400 mt-1 leading-relaxed">
-                  Select standard 64x32 PNG cape cosmetics. Injected natively into game launch resource packs.
-                </p>
-              </div>
-
-              <div class="mt-4 flex items-center gap-1.5 text-xs text-purple-400 font-bold uppercase tracking-wider">
-                <span>Browse File</span>
-                <ArrowUpRight class="w-3.5 h-3.5" />
-              </div>
-            </button>
-          </div>
-
-          <!-- Quick Reset Toolbar -->
-          <div class="flex items-center gap-3 pt-2">
-            <button
-              type="button"
-              onclick={() => launcher.resetPlayerSkin()}
-              class="flex-1 py-2 px-3 rounded-xl bg-white/4 hover:bg-white/8 border border-white/8 text-neutral-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <RotateCcw class="w-3.5 h-3.5" />
-              <span>Reset Skin to Steve</span>
-            </button>
-
-            {#if launcher.activeCapeDataUrl}
-              <button
-                type="button"
-                onclick={() => launcher.resetPlayerCape()}
-                class="flex-1 py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <Trash2 class="w-3.5 h-3.5" />
-                <span>Remove Active Cape</span>
-              </button>
-            {/if}
-          </div>
+          <button
+            type="button"
+            onclick={() => launcher.forceSyncUniversalSkin()}
+            class="px-3.5 py-2 rounded-xl bg-white/8 hover:bg-white/16 border border-white/10 text-neutral-200 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0 self-end sm:self-center shadow-sm"
+            title="Force synchronization into options.txt and in-game mod caches"
+          >
+            <RefreshCw class="w-3.5 h-3.5 text-red-400" />
+            <span>Force Sync</span>
+          </button>
         </div>
 
-        <!-- Technical Diagnostics Card -->
-        <div class="p-5 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-3">
-          <div class="text-xs text-neutral-400 font-bold uppercase tracking-wider">
-            Active Texture Specifications
+        <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-white/6 text-[10px] text-neutral-400">
+          <span class="flex items-center gap-1 text-neutral-300">
+            <Check class="w-3 h-3 text-red-400" /> Options.txt Auto-Linked
+          </span>
+          <span class="text-white/20">•</span>
+          <span class="flex items-center gap-1 text-neutral-300">
+            <Check class="w-3 h-3 text-red-400" /> Offline Mod Caches Synced
+          </span>
+          <span class="text-white/20">•</span>
+          <span class="flex items-center gap-1 text-neutral-300">
+            <Check class="w-3 h-3 text-red-400" /> Backward Compatible
+          </span>
+        </div>
+      </div>
+
+      <!-- SMP & Multiplayer Skin Visibility Card -->
+      <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-4 shadow-xl">
+        <div class="flex items-center justify-between pb-3 border-b border-white/8">
+          <div class="flex items-center gap-2 text-white font-bold text-sm uppercase tracking-wider">
+            <Globe class="w-4 h-4 text-cyan-400" />
+            <span>SMP & Multiplayer Skin Visibility</span>
           </div>
-          <div class="grid grid-cols-3 gap-3">
-            <div class="p-3 rounded-xl bg-white/2 border border-white/6">
-              <span class="text-[10px] text-neutral-400 block uppercase font-bold">Skin Format</span>
-              <span class="text-xs font-mono font-bold text-emerald-400">64x64 RGBA</span>
-            </div>
-            <div class="p-3 rounded-xl bg-white/2 border border-white/6">
-              <span class="text-[10px] text-neutral-400 block uppercase font-bold">Model Rig</span>
-              <span class="text-xs font-mono font-bold text-white capitalize">{modelType} Arm</span>
-            </div>
-            <div class="p-3 rounded-xl bg-white/2 border border-white/6">
-              <span class="text-[10px] text-neutral-400 block uppercase font-bold">Equipped Cape</span>
-              <span class="text-xs font-mono font-bold {launcher.activeCapeDataUrl ? 'text-purple-400' : 'text-neutral-500'}">
-                {launcher.activeCapeDataUrl ? "Active" : "None"}
-              </span>
-            </div>
-          </div>
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 uppercase tracking-widest">
+            Multiplayer Mode
+          </span>
         </div>
 
-      <!-- SUB-TAB 2: CAPES COLLECTION -->
-      {:else if activeSubTab === "capes"}
-        <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-4">
-          <div>
-            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Crown class="w-4 h-4 text-purple-400" />
-              <span>Exclusive Capes Collection</span>
-            </h3>
-            <p class="text-xs text-neutral-400 mt-0.5">
-              Equip animated cosmetics and badges visible in third-person view and inventory.
-            </p>
-          </div>
+        <p class="text-xs text-neutral-300 leading-relaxed">
+          Ensure your custom skin renders seamlessly on offline, cracked, and modded SMP multiplayer servers.
+        </p>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {#each CAPE_PRESETS as cape}
-              <div class="p-5 rounded-2xl bg-white/2 border border-white/8 hover:border-white/16 transition-all flex flex-col justify-between space-y-4">
-                <div>
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-gradient-to-r {cape.color} border">
-                      {cape.rarity}
-                    </span>
-                    <span class="text-[10px] text-neutral-400 font-mono">64x32</span>
-                  </div>
-                  <h4 class="text-base font-bold text-white">{cape.name}</h4>
-                  <p class="text-[11px] text-neutral-400 mt-1">{cape.tag}</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          <!-- Option 1: 1-Click SMP Skin Mod Integration -->
+          <div class="p-4 rounded-xl bg-white/2 border border-white/8 flex flex-col justify-between space-y-3">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Zap class="w-3.5 h-3.5 text-amber-400" />
+                  <span>Automatic SMP Skin Mod</span>
+                </span>
+                {#if launcher.isSmpSkinModInstalled()}
+                  <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                    ✓ Installed
+                  </span>
+                {/if}
+              </div>
+              <p class="text-[11px] text-neutral-400 mt-1 leading-relaxed">
+                Loads your local skin automatically across all offline SMP and LAN servers without needing server commands.
+              </p>
+            </div>
+
+            <div>
+              {#if launcher.isSmpSkinModInstalled()}
+                <div class="text-[11px] text-emerald-400 font-semibold flex items-center gap-1.5 bg-emerald-950/30 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">
+                  <CheckCircle2 class="w-3.5 h-3.5 shrink-0" />
+                  <span>Active & Synced with Skin Studio</span>
                 </div>
-
+              {:else}
                 <button
                   type="button"
-                  onclick={() => launcher.applyCapeBase64(cape.dataUrl)}
-                  class="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-purple-600/30"
+                  onclick={() => launcher.installSmpSkinMod()}
+                  disabled={launcher.isInstallingSmpSkinMod}
+                  class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-cyan-600/20 active:scale-95"
                 >
-                  <Check class="w-3.5 h-3.5" />
-                  <span>Equip Cape</span>
+                  {#if launcher.isInstallingSmpSkinMod}
+                    <Loader2 class="w-3.5 h-3.5 animate-spin" />
+                    <span>Installing Mod...</span>
+                  {:else}
+                    <Download class="w-3.5 h-3.5" />
+                    <span>Install SMP Skin Mod (1-Click)</span>
+                  {/if}
                 </button>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      <!-- SUB-TAB 4: PLAYER SKIN LOOKUP / STEALER -->
-      {:else if activeSubTab === "stealer"}
-        <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-5">
-          <div>
-            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Search class="w-4 h-4 text-cyan-400" />
-              <span>Player Skin Lookup & Stealer</span>
-            </h3>
-            <p class="text-xs text-neutral-400 mt-0.5">
-              Fetch the official skin texture of any Minecraft Java player and apply it immediately to your profile.
-            </p>
+              {/if}
+            </div>
           </div>
 
-          <div class="space-y-3">
-            <div class="flex items-center gap-2">
-              <input
-                type="text"
-                bind:value={searchUsername}
-                placeholder="Enter Minecraft Java username (e.g. Notch, Technoblade)..."
-                class="flex-1 px-4 py-2.5 rounded-xl bg-white/4 border border-white/10 text-xs font-mono text-white outline-none focus:border-cyan-500/50 transition-colors"
-                onkeydown={(e) => {
-                  if (e.key === "Enter" && searchUsername.trim()) {
-                    launcher.importSkinByUsername(searchUsername.trim());
-                  }
-                }}
-              />
+          <!-- Option 2: In-Game SMP Command Helper -->
+          <div class="p-4 rounded-xl bg-white/2 border border-white/8 flex flex-col justify-between space-y-3">
+            <div>
+              <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                <Shirt class="w-3.5 h-3.5 text-purple-400" />
+                <span>SkinsRestorer Server Command</span>
+              </span>
+              <p class="text-[11px] text-neutral-400 mt-1 leading-relaxed">
+                On SMP servers running the SkinsRestorer plugin, run this in server chat so every player sees your skin:
+              </p>
+            </div>
+
+            <div class="flex items-center gap-2 bg-black/40 px-3 py-2 rounded-xl border border-white/6 justify-between">
+              <span class="text-xs font-mono text-purple-300 font-bold truncate">
+                /skin {launcher.activeAccount?.username || "Player"}
+              </span>
               <button
                 type="button"
-                disabled={!searchUsername.trim() || launcher.isLoadingSkin}
-                onclick={() => launcher.importSkinByUsername(searchUsername.trim())}
-                class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-cyan-600/30 shrink-0"
+                onclick={() => launcher.copySmpSkinCommand()}
+                class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-neutral-200 hover:text-white text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                title="Copy /skin command to clipboard"
               >
-                {#if launcher.isLoadingSkin}
-                  <Loader2 class="w-4 h-4 animate-spin" />
-                {:else}
-                  <Download class="w-4 h-4" />
-                {/if}
-                <span>Fetch & Equip</span>
+                <Copy class="w-3 h-3" />
+                <span>Copy</span>
               </button>
-            </div>
-
-            <!-- Quick Creator Shortcuts -->
-            <div class="pt-2">
-              <span class="text-[11px] text-neutral-400 font-bold uppercase tracking-wider block mb-2">
-                Popular Creator Skins:
-              </span>
-              <div class="flex flex-wrap gap-2">
-                {#each ["Notch", "Technoblade", "MumboJumbo", "Grian", "DanTDM", "CaptainSparklez"] as creator}
-                  <button
-                    type="button"
-                    onclick={() => launcher.importSkinByUsername(creator)}
-                    class="px-3 py-1.5 rounded-xl bg-white/4 hover:bg-cyan-500/20 hover:border-cyan-500/30 border border-white/8 text-xs font-semibold text-neutral-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span>{creator}</span>
-                  </button>
-                {/each}
-              </div>
             </div>
           </div>
         </div>
-      {/if}
+      </div>
+
+      <!-- Active Custom Skin & Cape Uploader Card -->
+      <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-white/8">
+          <div class="flex items-center gap-2 text-white font-bold text-sm uppercase tracking-wider">
+            <Upload class="w-4 h-4 text-red-500" />
+            <span>Apply Custom Textures</span>
+          </div>
+          <button
+            type="button"
+            onclick={downloadCurrentSkin}
+            class="text-xs text-neutral-400 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Download your active skin texture PNG"
+          >
+            <Download class="w-3.5 h-3.5" />
+            <span>Save PNG</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Skin Uploader -->
+          <button
+            type="button"
+            onclick={() => launcher.pickAndApplySkin()}
+            class="p-5 rounded-2xl bg-white/2 hover:bg-red-500/10 border border-white/8 hover:border-red-500/30 text-left transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 group-hover:scale-105 transition-transform mb-3">
+                <Shirt class="w-5 h-5" />
+              </div>
+              <div class="text-sm font-bold text-white group-hover:text-red-400 transition-colors">
+                Choose Skin File
+              </div>
+              <p class="text-xs text-neutral-400 mt-1 leading-relaxed">
+                Select any standard 64x64 PNG Minecraft skin. Drag & drop directly onto the 3D model also supported.
+              </p>
+            </div>
+
+            <div class="mt-4 flex items-center gap-1.5 text-xs text-red-400 font-bold uppercase tracking-wider">
+              <span>Browse File</span>
+              <ArrowUpRight class="w-3.5 h-3.5" />
+            </div>
+          </button>
+
+          <!-- Cape Uploader -->
+          <button
+            type="button"
+            onclick={() => launcher.pickAndApplyCape()}
+            class="p-5 rounded-2xl bg-white/2 hover:bg-purple-500/10 border border-white/8 hover:border-purple-500/30 text-left transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform mb-3">
+                <Sparkle class="w-5 h-5" />
+              </div>
+              <div class="text-sm font-bold text-white group-hover:text-purple-400 transition-colors">
+                Choose Custom Cape File
+              </div>
+              <p class="text-xs text-neutral-400 mt-1 leading-relaxed">
+                Select standard 64x32 PNG cape cosmetics. Injected natively into game launch resource packs.
+              </p>
+            </div>
+
+            <div class="mt-4 flex items-center gap-1.5 text-xs text-purple-400 font-bold uppercase tracking-wider">
+              <span>Browse File</span>
+              <ArrowUpRight class="w-3.5 h-3.5" />
+            </div>
+          </button>
+        </div>
+
+        <!-- Quick Reset Toolbar -->
+        <div class="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onclick={() => launcher.resetPlayerSkin()}
+            class="flex-1 py-2 px-3 rounded-xl bg-white/4 hover:bg-white/8 border border-white/8 text-neutral-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          >
+            <RotateCcw class="w-3.5 h-3.5" />
+            <span>Reset Skin to Steve</span>
+          </button>
+
+          {#if launcher.activeCapeDataUrl}
+            <button
+              type="button"
+              onclick={() => launcher.resetPlayerCape()}
+              class="flex-1 py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+              <span>Remove Active Cape</span>
+            </button>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Technical Diagnostics Card -->
+      <div class="p-5 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-3">
+        <div class="text-xs text-neutral-400 font-bold uppercase tracking-wider">
+          Active Texture Specifications
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div class="p-3 rounded-xl bg-white/2 border border-white/6">
+            <span class="text-[10px] text-neutral-400 block uppercase font-bold">Skin Format</span>
+            <span class="text-xs font-mono font-bold text-emerald-400">64x64 RGBA</span>
+          </div>
+          <div class="p-3 rounded-xl bg-white/2 border border-white/6">
+            <span class="text-[10px] text-neutral-400 block uppercase font-bold">Model Rig</span>
+            <span class="text-xs font-mono font-bold text-white capitalize">{modelType} Arm</span>
+          </div>
+          <div class="p-3 rounded-xl bg-white/2 border border-white/6">
+            <span class="text-[10px] text-neutral-400 block uppercase font-bold">In-Game Sync</span>
+            <span class="text-xs font-mono font-bold text-emerald-400">All Versions</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

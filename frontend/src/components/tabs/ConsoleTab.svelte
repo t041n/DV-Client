@@ -93,6 +93,11 @@
     return list;
   });
 
+  // Limit rendered DOM elements to the latest 1,000 lines to maintain ultra-fast 60 FPS rendering
+  let renderedLogs = $derived(
+    displayedLogs.length > 1000 ? displayedLogs.slice(-1000) : displayedLogs
+  );
+
   function getLogClass(line: string) {
     if (
       line.includes("ERROR") ||
@@ -400,7 +405,15 @@
         >
       </div>
     {:else}
-      {#each displayedLogs as line}
+      {#if displayedLogs.length > 1000}
+        <div
+          class="text-[10px] text-neutral-400 py-1 px-2 mb-2 rounded bg-white/5 border border-white/5 font-mono flex items-center justify-between"
+        >
+          <span>Showing latest 1,000 events ({displayedLogs.length} total matches)</span>
+          <span class="text-neutral-400">Use "Export Logs" or "Copy All" for complete transcript</span>
+        </div>
+      {/if}
+      {#each renderedLogs as line}
         <div
           class="break-all font-mono text-[11px] leading-5 {getLogClass(line)}"
         >

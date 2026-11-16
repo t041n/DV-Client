@@ -56,9 +56,36 @@ impl ErrorDetector {
         exit_code: i32,
         recent_lines: &[String],
         game_dir: &Path,
+        session_start: Option<SystemTime>,
     ) -> CrashAnalysis {
-        let combined_text = recent_lines.join("\n");
-        let crash_report = Self::find_recent_crash_report(game_dir);
+        let mut combined_text = recent_lines.join("\n");
+
+        // Also inspect the tail of latest.log on disk if available, as Minecraft log appenders flush clean shutdown messages there
+        let latest_log_path = game_dir.join("logs").join("latest.log");
+        if let Ok(content) = fs::read_to_string(&latest_log_path) {
+            let tail_lines = content.lines().rev().take(60).collect::<Vec<_>>();
+            let mut tail_rev = tail_lines;
+            tail_rev.reverse();
+            combined_text.push('\n');
+            combined_text.push_str(&tail_rev.join("\n"));
+        }
+
+        let crash_report = Self::find_recent_crash_report(game_dir, session_start);
+
+        let is_clean_shutdown = combined_text.contains("Stopping!")
+            || combined_text.contains("SoundSystem shutting down")
+            || combined_text.contains("Sound engine shutting down")
+            || combined_text.contains("Stopping worker threads")
+            || combined_text.contains("Saving players")
+            || combined_text.contains("Saving worlds")
+            || combined_text.contains("Stopping server")
+            || combined_text.contains("Stopping client")
+            || combined_text.contains("Stopping singleplayer")
+            || combined_text.contains("Halting executor service")
+            || combined_text.contains("Destroying GLFW window")
+            || combined_text.contains("Closing Window")
+            || combined_text.contains("Cleaning up")
+            || combined_text.contains("Minecraft has stopped");
 
         // 1. Check for Java Bytecode Version Mismatch (UnsupportedClassVersionError)
         if combined_text.contains("UnsupportedClassVersionError")
@@ -168,6 +195,43 @@ impl ErrorDetector {
             };
         }
 
+        // 5b. Check for Duplicate Classpath / ASM errors (Fabric LoaderUtil.verifyClasspath)
+        if combined_text.contains("duplicate ASM classes found on classpath")
+            || (combined_text.contains("duplicate") && combined_text.contains("classes found on classpath"))
+        {
+            return CrashAnalysis {
+                exit_code,
+                category: "Classpath Conflict".to_string(),
+                headline: "Duplicate ASM Classes on Classpath".to_string(),
+                explanation: "Fabric Loader aborted startup because conflicting duplicate ASM bytecode libraries (e.g. multiple asm-*.jar versions) were detected on the classpath.".to_string(),
+                recommended_action: "Delete older duplicate asm-*.jar versions in your libraries folder or restart the launcher with the latest update.".to_string(),
+                log_excerpt: Self::extract_relevant_snippet(&recent_lines, "duplicate ASM classes"),
+                crash_report_path: None,
+                is_fatal: true,
+            };
+        }
+
+        // 5c. Check for unhandled exceptions during main entrypoint initialization
+        if combined_text.contains("Exception in thread \"main\"")
+            || combined_text.contains("java.lang.ExceptionInInitializerError")
+        {
+            let root_cause = combined_text
+                .lines()
+                .find(|l| l.contains("Caused by:") || l.contains("IllegalStateException"))
+                .unwrap_or("Exception in thread \"main\"");
+
+            return CrashAnalysis {
+                exit_code,
+                category: "Startup Initialization Failure".to_string(),
+                headline: "Minecraft Failed to Initialize".to_string(),
+                explanation: format!("The game process failed during startup: {}", root_cause.trim()),
+                recommended_action: "Check the Live Console tab for the full stack trace or review installed mods and libraries.".to_string(),
+                log_excerpt: Self::extract_relevant_snippet(&recent_lines, "Exception in thread \"main\""),
+                crash_report_path: None,
+                is_fatal: true,
+            };
+        }
+
         // 6. Check for Forge / NeoForge Mod Loading Errors
         if combined_text.contains("net.minecraftforge.fml.LoadingFailedException")
             || combined_text.contains("ModLoadingException")
@@ -204,7 +268,7 @@ impl ErrorDetector {
         }
 
         // 8. Windows Native Access Violation (0xC0000005) or Missing DLL (0xC0000135)
-        if exit_code as u32 == 0xC0000005 || exit_code == -1073741819 {
+        if (exit_code as u32 == 0xC0000005 || exit_code == -1073741819) && !is_clean_shutdown {
             return CrashAnalysis {
                 exit_code,
                 category: "Native Access Violation".to_string(),
@@ -257,18 +321,23 @@ impl ErrorDetector {
         let mut snippet_rev = snippet;
         snippet_rev.reverse();
 
-        let is_minor_session_end = exit_code == 0
-            || exit_code == 1
-            || exit_code == -1
-            || exit_code == 130
-            || exit_code == 143;
+        let has_fatal_exception = combined_text.contains("Exception in thread")
+            || combined_text.contains("FATAL")
+            || combined_text.contains("Error:")
+            || combined_text.contains("Caused by:");
+
+        let is_minor_session_end = !has_fatal_exception && (
+            exit_code == 0
+            || is_clean_shutdown
+            || ((exit_code == 1 || exit_code == -1 || exit_code == 130 || exit_code == 143 || (exit_code as u32) == 0xC000013A) && is_clean_shutdown)
+        );
 
         if is_minor_session_end {
             CrashAnalysis {
                 exit_code,
                 category: "Session Finished".to_string(),
                 headline: format!("Minecraft Session Ended (Exit Code {})", exit_code),
-                explanation: "The Minecraft process finished. If you exited to title, closed the game window, or disconnected, no action is needed.".to_string(),
+                explanation: "The Minecraft process finished normally.".to_string(),
                 recommended_action: "If this was intentional, you're all set! If the game closed unexpectedly, check the Live Console for any warning messages.".to_string(),
                 log_excerpt: snippet_rev.join("\n"),
                 crash_report_path: None,
@@ -288,7 +357,10 @@ impl ErrorDetector {
         }
     }
 
-    fn find_recent_crash_report(game_dir: &Path) -> Option<PathBuf> {
+    fn find_recent_crash_report(
+        game_dir: &Path,
+        session_start: Option<SystemTime>,
+    ) -> Option<PathBuf> {
         let reports_dir = game_dir.join("crash-reports");
         if !reports_dir.exists() {
             return None;
@@ -313,10 +385,17 @@ impl ErrorDetector {
             }
         }
 
-        // Only return if created within the last 5 minutes
+        // Only return if created within the current session
         if let Some(ref _path) = newest_file {
-            if let Ok(elapsed) = newest_time.elapsed() {
-                if elapsed.as_secs() <= 300 {
+            if let Some(start) = session_start {
+                let threshold = start
+                    .checked_sub(std::time::Duration::from_secs(3))
+                    .unwrap_or(start);
+                if newest_time >= threshold {
+                    return newest_file;
+                }
+            } else if let Ok(elapsed) = newest_time.elapsed() {
+                if elapsed.as_secs() <= 60 {
                     return newest_file;
                 }
             }

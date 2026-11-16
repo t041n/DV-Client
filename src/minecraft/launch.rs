@@ -152,12 +152,44 @@ impl LaunchArgumentBuilder {
             cp_elements.push(ctx.client_jar_path.clone());
         }
 
+        // 4. Classpath deduplication: Prevent duplicate ASM classes or conflicting library versions
+        // Fabric Knot specifically rejects duplicate ASM jars (LoaderUtil.verifyClasspath).
+        let mut seen_asm_artifacts = std::collections::HashSet::new();
+        let mut deduplicated_elements: Vec<PathBuf> = Vec::new();
+
+        for path in cp_elements {
+            let path_str = path.to_string_lossy().replace('\\', "/");
+            let is_asm = path_str.contains("org/ow2/asm") || path_str.contains("/asm/") || path_str.contains("/asm-");
+            if is_asm {
+                if let Some(file_name) = path.file_name().and_then(|f| f.to_str()) {
+                    let clean_artifact = if file_name.starts_with("asm-") {
+                        let parts: Vec<&str> = file_name.trim_end_matches(".jar").split('-').collect();
+                        if parts.len() >= 2 && !parts[1].chars().next().map_or(false, |c| c.is_ascii_digit()) {
+                            format!("{}-{}", parts[0], parts[1])
+                        } else {
+                            parts[0].to_string()
+                        }
+                    } else if file_name.starts_with("asm.") || file_name.starts_with("asm") {
+                        "asm".to_string()
+                    } else {
+                        file_name.split('-').next().unwrap_or(file_name).to_string()
+                    };
+
+                    if !seen_asm_artifacts.insert(clean_artifact) {
+                        tracing::warn!("Deduplicating classpath: skipping secondary ASM library {:?}", path);
+                        continue;
+                    }
+                }
+            }
+            deduplicated_elements.push(path);
+        }
+
         let sep = if cfg!(target_os = "windows") {
             ";"
         } else {
             ":"
         };
-        let paths_str: Vec<String> = cp_elements
+        let paths_str: Vec<String> = deduplicated_elements
             .into_iter()
             .map(|p| dunce::simplified(&p).to_string_lossy().to_string())
             .collect();

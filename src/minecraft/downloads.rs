@@ -159,7 +159,14 @@ impl AsyncDownloader {
                     if task.destination.exists() {
                         let _ = fs::remove_file(&task.destination);
                     }
-                    fs::rename(&tmp_dest, &task.destination)?;
+                    if let Err(rename_err) = fs::rename(&tmp_dest, &task.destination) {
+                        // Fallback copy + remove for cross-device or Windows transient file locking
+                        if fs::copy(&tmp_dest, &task.destination).is_ok() {
+                            let _ = fs::remove_file(&tmp_dest);
+                        } else {
+                            return Err(DownloadError::Io(rename_err));
+                        }
+                    }
                     return Ok(true);
                 }
                 Err(e) => {
@@ -330,8 +337,16 @@ impl AsyncDownloader {
 
         for handle in handles {
             match handle.await {
-                Ok(res) => res?,
-                Err(_) => return Err(DownloadError::Cancelled),
+                Ok(res) => {
+                    if let Err(e) = res {
+                        self.cancel();
+                        return Err(e);
+                    }
+                }
+                Err(_) => {
+                    self.cancel();
+                    return Err(DownloadError::Cancelled);
+                }
             }
         }
 

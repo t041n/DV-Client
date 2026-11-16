@@ -133,8 +133,8 @@ export const TauriService = {
   },
 
   // --- Skins & Capes ---
-  getPlayerSkin(username?: string | null): Promise<PlayerSkinPayload> {
-    return invoke("get_player_skin", { username: username || null });
+  getPlayerSkin(username?: string | null, uuid?: string | null): Promise<PlayerSkinPayload> {
+    return invoke("get_player_skin", { username: username || null, uuid: uuid || null });
   },
 
   pickSkinFile(): Promise<string | null> {
@@ -145,28 +145,32 @@ export const TauriService = {
     return invoke("pick_cape_file");
   },
 
-  applySkin(username: string, filePath: string): Promise<PlayerSkinPayload> {
-    return invoke("apply_skin", { username, filePath });
+  applySkin(username: string, filePath: string, uuid?: string | null): Promise<PlayerSkinPayload> {
+    return invoke("apply_skin", { username, uuid: uuid || null, filePath });
   },
 
-  applySkinBase64(username: string, base64Data: string): Promise<PlayerSkinPayload> {
-    return invoke("apply_skin_base64", { username, base64Data });
+  applySkinBase64(username: string, base64Data: string, uuid?: string | null): Promise<PlayerSkinPayload> {
+    return invoke("apply_skin_base64", { username, uuid: uuid || null, base64Data });
   },
 
-  applyCape(username: string, filePath: string): Promise<PlayerSkinPayload> {
-    return invoke("apply_cape", { username, filePath });
+  applyCape(username: string, filePath: string, uuid?: string | null): Promise<PlayerSkinPayload> {
+    return invoke("apply_cape", { username, uuid: uuid || null, filePath });
   },
 
-  applyCapeBase64(username: string, base64Data: string): Promise<PlayerSkinPayload> {
-    return invoke("apply_cape_base64", { username, base64Data });
+  applyCapeBase64(username: string, base64Data: string, uuid?: string | null): Promise<PlayerSkinPayload> {
+    return invoke("apply_cape_base64", { username, uuid: uuid || null, base64Data });
   },
 
-  resetSkin(username: string): Promise<PlayerSkinPayload> {
-    return invoke("reset_skin", { username });
+  resetSkin(username: string, uuid?: string | null): Promise<PlayerSkinPayload> {
+    return invoke("reset_skin", { username, uuid: uuid || null });
   },
 
-  resetCape(username: string): Promise<PlayerSkinPayload> {
-    return invoke("reset_cape", { username });
+  resetCape(username: string, uuid?: string | null): Promise<PlayerSkinPayload> {
+    return invoke("reset_cape", { username, uuid: uuid || null });
+  },
+
+  forceSyncSkinToInstances(username: string, uuid?: string | null): Promise<string> {
+    return invoke("force_sync_skin_to_instances", { username, uuid: uuid || null });
   },
 
   // --- Game Lifecycle ---
