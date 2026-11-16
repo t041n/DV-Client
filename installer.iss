@@ -4,7 +4,7 @@
 ; ==============================================================================
 
 #define MyAppName "Digital Vigital Launcher"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "Digital Vigital"
 #define MyAppURL "https://digitalvigital.com"
 #define MyAppExeName "DigitalVigitalLauncher.exe"

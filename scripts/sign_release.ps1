@@ -62,7 +62,12 @@ $targets = @(
     "$ProjectRoot\dv-launcher-app.exe",
     "$ProjectRoot\dv_core.dll",
     "$ProjectRoot\WebView2Loader.dll",
-    "$DistDir\DigitalVigital-Setup-1.0.0.exe"
+    "$DistDir\DigitalVigitalLauncher.exe",
+    "$DistDir\dv_core.dll",
+    "$DistDir\testing\DigitalVigitalLauncher.exe",
+    "$DistDir\testing\dv_core.dll",
+    "$DistDir\DigitalVigital-Setup-1.0.0.exe",
+    "$DistDir\DigitalVigital-Setup-1.0.1.exe"
 )
 
 foreach ($target in $targets) {

@@ -1,8 +1,11 @@
 import zipfile
 import os
+import shutil
 
 os.chdir('/mnt/d/projects/dv-client')
 zip_path = "dist/DigitalVigital-Testing-Portable.zip"
+release_zip = "dist/DigitalVigital-v1.0.1-windows-x64-portable.zip"
+
 if os.path.exists(zip_path):
     os.remove(zip_path)
 with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
@@ -14,4 +17,5 @@ with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
     z.write("README.md", "README.md")
     z.write("LICENSE", "LICENSE")
 
-print(f"Created {zip_path}: {os.path.getsize(zip_path)} bytes")
+shutil.copyfile(zip_path, release_zip)
+print(f"Created {zip_path} and {release_zip}: {os.path.getsize(zip_path)} bytes")
