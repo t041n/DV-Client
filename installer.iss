@@ -46,8 +46,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Modular Application Files: Small EXE + Core Engine DLL + WebView2 Runtime DLL
-Source: "DigitalVigitalLauncher.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dv_core.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\DigitalVigitalLauncher.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\dv_core.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dist\DigitalVigital.cer"; DestDir: "{app}"; Flags: ignoreversion

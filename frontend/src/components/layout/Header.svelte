@@ -159,12 +159,12 @@
           </div>
         </div>
       {:else}
-        <div class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+        <div class="w-8 h-8 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
           <User class="w-4 h-4" />
         </div>
         <div class="text-left">
-          <div class="text-sm font-bold text-neutral-200">No Account</div>
-          <div class="text-xs text-neutral-400">Click to connect</div>
+          <div class="text-sm font-bold text-white">No Username</div>
+          <div class="text-xs text-red-400 font-semibold">Choose account</div>
         </div>
       {/if}
       <ChevronDown class="w-4 h-4 text-neutral-400 group-hover:text-white transition-colors" />

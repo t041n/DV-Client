@@ -142,6 +142,9 @@ export class LauncherState {
     } catch (_) { }
 
     await this.refreshAccounts();
+    if (!this.activeAccount && this.accounts.length === 0) {
+      this.showAccountModal = true;
+    }
     await this.refreshInstances();
     await this.checkHardwareAndJava();
     await this.loadSettings();
@@ -337,6 +340,7 @@ export class LauncherState {
       await invoke("select_active_account", { id });
       await this.refreshAccounts();
       await this.loadPlayerSkin();
+      this.showAccountModal = false;
       this.showToast("Player account active!");
     } catch (e) {
       this.showToast("Account error: " + e);
@@ -345,13 +349,19 @@ export class LauncherState {
 
   async addOfflineAccount(username: string) {
     const trimmed = username.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      this.showToast("Please enter a username!");
+      return;
+    }
     try {
       await invoke("add_offline_account", { username: trimmed });
       await this.refreshAccounts();
-      this.showToast(`Welcome, ${trimmed}!`);
-    } catch (e) {
-      this.showToast("Failed to add account: " + e);
+      await this.loadPlayerSkin();
+      this.showAccountModal = false;
+      this.showToast(`Welcome, ${trimmed}! Ready to play.`);
+    } catch (e: any) {
+      const msg = typeof e === "string" ? e : (e?.message || JSON.stringify(e));
+      this.showToast("Failed to add account: " + msg);
     }
   }
 
@@ -384,7 +394,9 @@ export class LauncherState {
       this.isMsLoggingIn = false;
       this.msLoginUrl = "";
       await this.refreshAccounts();
-      this.showToast("Microsoft account connected!");
+      await this.loadPlayerSkin();
+      this.showAccountModal = false;
+      this.showToast("Microsoft account connected! Ready to play.");
     } catch (e) {
       this.showToast("Authentication failed: " + e);
     }
@@ -1090,6 +1102,12 @@ export class LauncherState {
     if (!this.activeInstance) {
       this.showToast("Please choose or create a profile first!");
       this.activeTab = "instances";
+      return;
+    }
+
+    if (!this.activeAccount) {
+      this.showToast("Please choose a username or sign in with Microsoft to play!");
+      this.showAccountModal = true;
       return;
     }
 

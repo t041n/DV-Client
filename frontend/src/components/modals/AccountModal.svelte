@@ -93,8 +93,8 @@
                 </div>
                 <div class="text-xs text-neutral-400">
                   {acc.account_type === "microsoft"
-                    ? "Microsoft Account"
-                    : "Offline Player"}
+                    ? "Microsoft Account (Online)"
+                    : "Normal Offline Account"}
                 </div>
               </div>
             </div>
@@ -121,29 +121,64 @@
         {/each}
 
         {#if launcher.accounts.length === 0}
-          <div class="p-4 text-center text-xs text-neutral-400">
-            No accounts configured. Add an account below.
+          <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-center text-xs text-amber-200 space-y-1">
+            <div class="font-bold">No Player Account Selected</div>
+            <div class="text-neutral-400">Please choose a username below (offline or Microsoft) to play.</div>
           </div>
         {/if}
       </div>
 
       <!-- Add Accounts Tabbed / Stacked Section -->
       <div class="space-y-4 pt-4 border-t border-white/8">
-        <!-- Microsoft OAuth Login -->
+        <!-- Add Offline Account (Normal) -->
+        <div class="p-4 rounded-2xl bg-white/4 border border-white/8 space-y-3">
+          <div class="flex items-center justify-between">
+            <span
+              class="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-2"
+            >
+              <User class="w-4 h-4 text-red-400" />
+              <span>Normal Offline Account (Singleplayer & SMPs)</span>
+            </span>
+          </div>
+          <p class="text-[11px] text-neutral-400 leading-relaxed">
+            No password or email required. Jump straight into singleplayer worlds, LAN, and offline SMP servers.
+          </p>
+
+          <div class="flex gap-2">
+            <input
+              type="text"
+              bind:value={offlineName}
+              onkeydown={(e) => e.key === "Enter" && handleAddOffline()}
+              placeholder="Enter your username (e.g. Alex, Torin, Steve)..."
+              class="flex-1 px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white outline-none focus:border-red-500/50"
+            />
+            <button
+              onclick={handleAddOffline}
+              class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase cursor-pointer transition-all shadow-md active:scale-95 shrink-0"
+            >
+              Set Username
+            </button>
+          </div>
+        </div>
+
+        <!-- Microsoft OAuth Login (Online) -->
         <div class="p-4 rounded-2xl bg-white/4 border border-white/8 space-y-3">
           <div class="flex items-center justify-between">
             <span
               class="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-2"
             >
               <ShieldCheck class="w-4 h-4 text-sky-400" />
-              <span>Microsoft Account (Multiplayer & Skin Sync)</span>
+              <span>Microsoft Account (Online / Realms / Hypixel)</span>
             </span>
           </div>
+          <p class="text-[11px] text-neutral-400 leading-relaxed">
+            Connect an official Minecraft account to play on verified online-mode servers.
+          </p>
 
           {#if !launcher.isMsLoggingIn}
             <button
               onclick={() => launcher.startMicrosoftLogin()}
-              class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
+              class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-95"
             >
               <ExternalLink class="w-4 h-4" />
               <span>Sign in with Microsoft</span>
@@ -170,32 +205,6 @@
               </div>
             </div>
           {/if}
-        </div>
-
-        <!-- Add Offline Account -->
-        <div class="p-4 rounded-2xl bg-white/4 border border-white/8 space-y-3">
-          <span
-            class="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-2"
-          >
-            <User class="w-4 h-4 text-neutral-400" />
-            <span>Add Offline Player Profile</span>
-          </span>
-
-          <div class="flex gap-2">
-            <input
-              type="text"
-              bind:value={offlineName}
-              onkeydown={(e) => e.key === "Enter" && handleAddOffline()}
-              placeholder="Enter player username..."
-              class="flex-1 px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-xs text-white outline-none focus:border-red-500/50"
-            />
-            <button
-              onclick={handleAddOffline}
-              class="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase cursor-pointer"
-            >
-              Add
-            </button>
-          </div>
         </div>
       </div>
     </div>

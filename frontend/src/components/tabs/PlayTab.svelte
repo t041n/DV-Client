@@ -21,6 +21,7 @@
     X,
     FileText,
     Info,
+    User,
   } from "lucide-svelte";
 
   function getLoaderColor(loader: string = "") {
@@ -363,6 +364,40 @@
       </div>
     {/if}
 
+    <!-- Player Username Required Banner -->
+    {#if !launcher.activeAccount && launcher.gameStatus !== "running"}
+      <div
+        class="relative z-10 p-4 rounded-2xl bg-gradient-to-r from-red-950/70 via-[#1e0a0f]/70 to-[#120508]/80 border border-red-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl backdrop-blur-sm animate-in fade-in duration-300"
+      >
+        <div class="flex items-center gap-3.5 min-w-0">
+          <div
+            class="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0"
+          >
+            <User class="w-5 h-5" />
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs font-bold text-white flex items-center gap-2">
+              <span>Player Username Required</span>
+              <span class="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 text-[10px] font-mono font-bold">
+                Online or Offline
+              </span>
+            </div>
+            <p class="text-[11px] text-neutral-300 mt-0.5 leading-relaxed">
+              Choose an offline username to jump straight into singleplayer/SMPs, or connect your Microsoft account.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onclick={() => (launcher.showAccountModal = true)}
+          class="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-red-600/30 hover:scale-105 active:scale-95"
+        >
+          <User class="w-3.5 h-3.5" />
+          <span>Choose Username</span>
+        </button>
+      </div>
+    {/if}
+
     <!-- Bottom Launch Area -->
     <div
       class="relative z-10 pt-6 flex flex-col md:flex-row items-center justify-between gap-6"
@@ -431,6 +466,9 @@
             class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
           ></div>
           <span>DOWNLOADING...</span>
+        {:else if !launcher.activeAccount}
+          <User class="w-5 h-5 text-white" />
+          <span>CHOOSE USERNAME TO PLAY</span>
         {:else}
           <Play class="w-5 h-5 fill-white" />
           <span>PLAY MINECRAFT</span>

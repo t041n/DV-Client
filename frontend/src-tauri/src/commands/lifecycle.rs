@@ -53,17 +53,17 @@ pub async fn launch_game(
         let cm = state.config_mgr.lock().await;
         auth.get_active_account(cm.config.active_account_id.as_deref())
             .or_else(|| auth.accounts.values().next().cloned())
-            .unwrap_or_else(|| {
-                // Fallback offline player
-                dv_launcher::accounts::MinecraftAccount {
-                    id: "00000000-0000-0000-0000-000000000000".to_string(),
-                    username: "Player".to_string(),
-                    account_type: "offline".to_string(),
-                    avatar_url: None,
-                    last_login: 0,
-                    access_token: Some("0".to_string()),
-                }
-            })
+    };
+
+    let account = match account {
+        Some(a) => a,
+        None => {
+            state.is_launching.store(false, Ordering::SeqCst);
+            return Err(
+                "No player account selected. Please choose a username (online or offline) before playing."
+                    .to_string(),
+            );
+        }
     };
 
     let req_ver = JavaDetector::required_java_major_version(&inst.minecraft_version);
