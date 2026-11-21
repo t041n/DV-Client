@@ -86,9 +86,8 @@ pub fn unrecord_installed_mod<P: AsRef<Path>>(mods_dir: P, file_name: &str) {
 
 /// Directory where extracted local mod icons and Modrinth mod logos are cached.
 pub fn get_mod_icon_cache_dir() -> PathBuf {
-    let cache_base = dirs::cache_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("digitalvigital")
+    let cache_base = crate::config::get_default_app_data_dir()
+        .join("cache")
         .join("mod_icons");
     let _ = fs::create_dir_all(&cache_base);
     cache_base

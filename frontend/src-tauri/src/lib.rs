@@ -16,9 +16,9 @@ use tracing::info;
 
 fn append_startup_log(step: &str) {
     use std::io::Write;
-    let log_path = dirs::data_dir()
-        .map(|d| d.join("DigitalVigital").join("startup.log"))
-        .unwrap_or_else(|| std::path::PathBuf::from("dv_startup.log"));
+    let log_dir = dv_launcher::config::get_default_app_data_dir().join("logs");
+    let _ = std::fs::create_dir_all(&log_dir);
+    let log_path = log_dir.join("startup.log");
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -30,6 +30,27 @@ fn append_startup_log(step: &str) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "android")]
+    {
+        if std::env::var("DV_DATA_DIR").is_err() {
+            let candidates = [
+                "/data/data/fun.digitalvigital.launcher/files",
+                "/data/user/0/fun.digitalvigital.launcher/files",
+                "/storage/emulated/0/Android/data/fun.digitalvigital.launcher/files",
+                "/sdcard/Android/data/fun.digitalvigital.launcher/files",
+            ];
+            for c in candidates {
+                let p = std::path::Path::new(c);
+                if p.exists() || std::fs::create_dir_all(p).is_ok() {
+                    let _ = std::env::set_var("DV_DATA_DIR", c);
+                    let _ = std::env::set_var("HOME", c);
+                    let _ = std::env::set_var("XDG_DATA_HOME", c);
+                    break;
+                }
+            }
+        }
+    }
+
     append_startup_log("2. app_lib::run() entered");
     info!("Starting DV Client Tauri v2 Engine");
 
@@ -49,9 +70,7 @@ pub fn run() {
                 "Config load error: {}. Using default fallback.",
                 e
             ));
-            let fallback_dir = dirs::data_dir()
-                .map(|d| d.join("DigitalVigital"))
-                .unwrap_or_else(std::env::temp_dir);
+            let fallback_dir = dv_launcher::config::get_default_app_data_dir();
             let _ = std::fs::create_dir_all(&fallback_dir);
             let fallback_cfg = ConfigManager::new(Some(fallback_dir.join("config.json")))
                 .unwrap_or_else(|_| {

@@ -31,18 +31,14 @@ pub enum SkinModel {
 
 /// Directory paths for skins and capes.
 pub fn get_skins_dir() -> PathBuf {
-    let base = dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("digitalvigital");
+    let base = crate::config::get_default_app_data_dir();
     let dir = base.join("skins");
     let _ = fs::create_dir_all(&dir);
     dir
 }
 
 pub fn get_capes_dir() -> PathBuf {
-    let base = dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("digitalvigital");
+    let base = crate::config::get_default_app_data_dir();
     let dir = base.join("capes");
     let _ = fs::create_dir_all(&dir);
     dir

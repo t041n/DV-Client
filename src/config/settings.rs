@@ -21,35 +21,67 @@ pub enum ConfigError {
 
 /// Resolves the platform-native base data directory for Digital Vigital (DV) Launcher.
 pub fn get_default_app_data_dir() -> PathBuf {
-    if cfg!(target_os = "windows") {
-        if let Ok(appdata) = std::env::var("APPDATA") {
-            return dunce::simplified(&PathBuf::from(appdata).join("DigitalVigital")).to_path_buf();
+    #[cfg(target_os = "android")]
+    {
+        if let Ok(dir) = std::env::var("DV_DATA_DIR") {
+            let p = PathBuf::from(dir).join("DigitalVigital");
+            let _ = std::fs::create_dir_all(&p);
+            return p;
         }
-        if let Some(data) = dirs::data_dir() {
-            return dunce::simplified(&data.join("DigitalVigital")).to_path_buf();
-        }
-        if let Some(home) = dirs::home_dir() {
-            return dunce::simplified(&home.join("AppData").join("Roaming").join("DigitalVigital"))
-                .to_path_buf();
-        }
-        PathBuf::from(".digitalvigital")
-    } else if cfg!(target_os = "macos") {
-        if let Some(home) = dirs::home_dir() {
-            return home
-                .join("Library")
-                .join("Application Support")
-                .join("DigitalVigital");
-        }
-        PathBuf::from(".digitalvigital")
-    } else {
-        // Linux / XDG
         if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
-            return PathBuf::from(xdg_data).join("digitalvigital");
+            let p = PathBuf::from(xdg_data).join("DigitalVigital");
+            let _ = std::fs::create_dir_all(&p);
+            return p;
         }
-        if let Some(home) = dirs::home_dir() {
-            return home.join(".local").join("share").join("digitalvigital");
+        let candidates = [
+            "/data/data/fun.digitalvigital.launcher/files/DigitalVigital",
+            "/data/user/0/fun.digitalvigital.launcher/files/DigitalVigital",
+            "/storage/emulated/0/Android/data/fun.digitalvigital.launcher/files/DigitalVigital",
+            "/sdcard/Android/data/fun.digitalvigital.launcher/files/DigitalVigital",
+            "/storage/emulated/0/DigitalVigital",
+            "/sdcard/DigitalVigital",
+        ];
+        for candidate in &candidates {
+            let p = PathBuf::from(candidate);
+            if p.exists() || std::fs::create_dir_all(&p).is_ok() {
+                return p;
+            }
         }
-        PathBuf::from(".digitalvigital")
+        return PathBuf::from("/data/data/fun.digitalvigital.launcher/files/DigitalVigital");
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        if cfg!(target_os = "windows") {
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                return dunce::simplified(&PathBuf::from(appdata).join("DigitalVigital")).to_path_buf();
+            }
+            if let Some(data) = dirs::data_dir() {
+                return dunce::simplified(&data.join("DigitalVigital")).to_path_buf();
+            }
+            if let Some(home) = dirs::home_dir() {
+                return dunce::simplified(&home.join("AppData").join("Roaming").join("DigitalVigital"))
+                    .to_path_buf();
+            }
+            PathBuf::from(".digitalvigital")
+        } else if cfg!(target_os = "macos") {
+            if let Some(home) = dirs::home_dir() {
+                return home
+                    .join("Library")
+                    .join("Application Support")
+                    .join("DigitalVigital");
+            }
+            PathBuf::from(".digitalvigital")
+        } else {
+            // Linux / XDG
+            if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
+                return PathBuf::from(xdg_data).join("digitalvigital");
+            }
+            if let Some(home) = dirs::home_dir() {
+                return home.join(".local").join("share").join("digitalvigital");
+            }
+            PathBuf::from(".digitalvigital")
+        }
     }
 }
 

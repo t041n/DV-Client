@@ -18,6 +18,15 @@ class MainActivity : TauriActivity() {
   private val PERMISSION_REQUEST_CODE = 1001
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    try {
+      val filesPath = filesDir.absolutePath
+      val cachePath = cacheDir.absolutePath
+      android.system.Os.setenv("DV_DATA_DIR", filesPath, true)
+      android.system.Os.setenv("HOME", filesPath, true)
+      android.system.Os.setenv("XDG_DATA_HOME", filesPath, true)
+      android.system.Os.setenv("XDG_CACHE_HOME", cachePath, true)
+    } catch (_: Exception) {}
+
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     requestAppPermissions()
