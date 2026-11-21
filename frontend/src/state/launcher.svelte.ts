@@ -187,7 +187,36 @@ export class LauncherState {
       await listen<any>("download-progress", (event) => {
         this.gameStatus = "downloading";
         this.downloadProgress = event.payload;
-        this.launchStatusText = `Downloading: ${event.payload.status || "assets"} (${event.payload.percent.toFixed(1)}%)`;
+
+        const raw = (event.payload?.status || "").toString();
+        const rawLower = raw.toLowerCase();
+        const pct = typeof event.payload?.percent === "number" ? event.payload.percent : 0;
+        const current = event.payload?.current;
+        const total = event.payload?.total;
+        const countStr = (typeof total === "number" && total > 0) ? ` (${current ?? 0}/${total})` : "";
+
+        let category = "game assets";
+        if (raw.includes("Client JAR") || (rawLower.includes("client") && rawLower.endsWith(".jar"))) {
+          category = "Minecraft client";
+        } else if (rawLower.includes("asset index") || rawLower.includes("indexes")) {
+          category = "index metadata";
+        } else if (rawLower.includes("natives") || rawLower.includes("native")) {
+          category = "native libraries";
+        } else if (rawLower.includes("fabric") || rawLower.includes("forge") || rawLower.includes("neoforge") || rawLower.includes("quilt")) {
+          category = "mod loader";
+        } else if (rawLower.includes("sound") || rawLower.endsWith(".ogg") || rawLower.endsWith(".mus")) {
+          category = "game audio";
+        } else if (rawLower.includes("texture") || rawLower.endsWith(".png")) {
+          category = "textures";
+        } else if (rawLower.includes("org.") || rawLower.includes("com.") || rawLower.includes("net.") || rawLower.includes("lib") || rawLower.endsWith(".jar")) {
+          category = "engine libraries";
+        } else if (rawLower.includes("java") || rawLower.includes("temurin") || rawLower.includes("openjdk")) {
+          category = "Java runtime";
+        } else if (rawLower.includes("mods/") || rawLower.includes("mod")) {
+          category = "mods";
+        }
+
+        this.launchStatusText = `Downloading ${category}${countStr} • ${pct.toFixed(0)}%`;
       });
 
       await listen<string>("game-state-change", (event) => {
@@ -200,7 +229,9 @@ export class LauncherState {
           this.launchStatusText = "Starting Minecraft JVM...";
         } else if (st === "finished" || st === "stopped") {
           this.gameStatus = "idle";
-          this.launchStatusText = "Session finished.";
+          if (!this.launchStatusText?.includes("prepared") && !this.launchStatusText?.includes("ready")) {
+            this.launchStatusText = "Session finished.";
+          }
           this.crashDetails = null;
           this.hintDetails = null;
           this.hasManualCrash = false;

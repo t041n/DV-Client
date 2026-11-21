@@ -112,7 +112,7 @@
 
   <!-- Main Launch Hero Card -->
   <div
-    class="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br from-[#12141c] via-[#0c0d14] to-[#18090d] shadow-2xl p-4 sm:p-6 lg:p-8 flex flex-col justify-between min-h-[250px] sm:min-h-[300px]"
+    class="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br from-[#12141c] via-[#0c0d14] to-[#18090d] shadow-2xl p-4 sm:p-6 lg:p-8 flex flex-col justify-between min-h-[220px] sm:min-h-[260px]"
   >
     <!-- Ambient Red Specular Flare -->
     <div
@@ -402,43 +402,45 @@
 
     <!-- Bottom Launch Area -->
     <div
-      class="relative z-10 pt-6 flex flex-col md:flex-row items-center justify-between gap-6"
+      class="relative z-10 pt-5 sm:pt-6 border-t border-white/8 mt-5 sm:mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-6"
     >
       <!-- Status & Download Progress -->
-      <div class="w-full md:w-auto flex-1 space-y-2">
-        <div class="flex items-center gap-2.5 text-sm text-neutral-200">
+      <div class="w-full sm:flex-1 min-w-0 space-y-2">
+        <div class="flex items-center gap-2.5 text-xs sm:text-sm text-neutral-200">
           {#if launcher.gameStatus === "running"}
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0"
             ></span>
           {:else if launcher.gameStatus === "launching" || launcher.gameStatus === "downloading"}
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-spin"
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-spin shrink-0"
             ></span>
           {:else if launcher.gameStatus === "crashed"}
-            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0"
             ></span>
           {:else}
-            <span class="w-2.5 h-2.5 rounded-full bg-neutral-600"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-neutral-600 shrink-0"></span>
           {/if}
-          <span class="font-medium">{launcher.launchStatusText}</span>
+          <span class="font-medium text-white/90 truncate min-w-0" title={launcher.launchStatusText}>
+            {launcher.launchStatusText}
+          </span>
         </div>
 
         {#if launcher.gameStatus === "downloading"}
           <div
-            class="w-full max-w-md h-2.5 rounded-full bg-white/8 border border-white/10 overflow-hidden relative"
+            class="w-full max-w-lg h-2.5 rounded-full bg-white/8 border border-white/10 overflow-hidden relative shadow-inner"
           >
             <div
-              class="h-full bg-gradient-to-r from-red-600 to-rose-400 rounded-full transition-all duration-200"
+              class="h-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-400 rounded-full transition-all duration-150"
               style="width: {launcher.downloadProgress.percent}%"
             ></div>
           </div>
           <div
-            class="flex justify-between max-w-md text-xs font-mono text-neutral-400"
+            class="flex justify-between max-w-lg text-[11px] sm:text-xs font-mono text-neutral-400"
           >
             <span
               >{launcher.downloadProgress.current} / {launcher.downloadProgress
                 .total} items</span
             >
-            <span>{launcher.downloadProgress.percent.toFixed(1)}%</span>
+            <span class="text-white font-semibold">{launcher.downloadProgress.percent.toFixed(1)}%</span>
           </div>
         {/if}
       </div>
@@ -447,7 +449,7 @@
       <button
         onclick={() => launcher.launchOrStop()}
         disabled={launcher.gameStatus === "launching"}
-        class="w-full md:w-auto px-10 py-4 rounded-2xl font-black uppercase tracking-wider text-sm flex items-center justify-center gap-3 shadow-2xl transition-all cursor-pointer duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed {launcher.gameStatus ===
+        class="w-full sm:w-auto shrink-0 px-8 sm:px-10 py-3.5 sm:py-4 rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2.5 sm:gap-3 shadow-2xl transition-all cursor-pointer duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed {launcher.gameStatus ===
         'running'
           ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30 border border-rose-400/30'
           : launcher.gameStatus === 'downloading' ||
@@ -470,7 +472,7 @@
           <span>DOWNLOADING...</span>
         {:else if !launcher.activeAccount}
           <User class="w-5 h-5 text-white" />
-          <span>CHOOSE USERNAME TO PLAY</span>
+          <span>CHOOSE USERNAME</span>
         {:else}
           <Play class="w-5 h-5 fill-white" />
           <span>PLAY MINECRAFT</span>
