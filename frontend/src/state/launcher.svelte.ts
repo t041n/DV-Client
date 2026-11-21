@@ -36,7 +36,13 @@ export interface ModrinthSearchResult {
 
 export class LauncherState {
   activeTab = $state<Tab>("play");
-  launcherInfo = $state<LauncherInfo>({ name: "Digital Vigital", version: "1.0.0", author: "Digital Vigital", repo_url: "" });
+  launcherInfo = $state<LauncherInfo>({ name: "Digital Vigital", version: "1.0.0", author: "Digital Vigital", repo_url: "", platform: "desktop", is_mobile: false });
+
+  isMobile = $derived(
+    Boolean(this.launcherInfo?.is_mobile ||
+    this.launcherInfo?.platform === "android" ||
+    (typeof navigator !== "undefined" && /android|iphone|ipad|ipod/i.test(navigator.userAgent)))
+  );
 
   // Profiles
   instances = $state<Instance[]>([]);
@@ -942,6 +948,11 @@ export class LauncherState {
 
   // --- Hardware & Java ---
   async checkHardwareAndJava() {
+    if (this.isMobile) {
+      this.detectedJavas = [];
+      this.detectedGpus = [];
+      return;
+    }
     try {
       this.detectedJavas = await invoke("detect_java");
     } catch (_) { }

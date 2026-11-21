@@ -5,6 +5,8 @@ export interface LauncherInfo {
   version: string;
   author: string;
   repo_url: string;
+  platform?: string;
+  is_mobile?: boolean;
 }
 
 export interface Instance {

@@ -62,122 +62,125 @@
     </button>
   </div>
 
-  <!-- Game & Storage Directory Section (Prevent C: drive pileup) -->
-  <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-5 shadow-xl">
-    <div class="flex items-center justify-between pb-3 border-b border-white/8">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 shrink-0">
-          <HardDrive class="w-5 h-5" />
+  <!-- Game & Storage Directory Section (Prevent C: drive pileup - Desktop Only) -->
+  {#if !launcher.isMobile}
+    <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-5 shadow-xl">
+      <div class="flex items-center justify-between pb-3 border-b border-white/8">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 shrink-0">
+            <HardDrive class="w-5 h-5" />
+          </div>
+          <div>
+            <h3 class="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
+              <span>Game & Storage Directories</span>
+              <span class="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 text-[10px] font-black uppercase">
+                Multi-Drive Support
+              </span>
+            </h3>
+            <p class="text-xs text-neutral-300 mt-0.5">
+              Store Minecraft assets, runtimes, and instances on ANY custom drive (D:, E:, etc.) to avoid filling your C: drive.
+            </p>
+          </div>
         </div>
-        <div>
-          <h3 class="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
-            <span>Game & Storage Directories</span>
-            <span class="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 text-[10px] font-black uppercase">
-              Multi-Drive Support
-            </span>
-          </h3>
-          <p class="text-xs text-neutral-300 mt-0.5">
-            Store Minecraft assets, runtimes, and instances on ANY custom drive (D:, E:, etc.) to avoid filling your C: drive.
-          </p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4">
+        <!-- 1. Base Game Directory -->
+        <div class="p-4 rounded-xl bg-white/2 border border-white/6 space-y-2">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs text-neutral-200 font-bold block uppercase tracking-wide">
+                Base Game & Core Assets Directory
+              </div>
+              <p class="text-[11px] text-neutral-400">
+                Shared Minecraft versions, libraries, runtime environments, and launcher cache.
+              </p>
+            </div>
+            <button
+              onclick={() => launcher.resetGameDirectory()}
+              class="text-[11px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              title="Reset base data directory to %APPDATA%\DigitalVigital"
+            >
+              Reset Default
+            </button>
+          </div>
+          <div class="flex items-center gap-2 pt-1">
+            <input
+              type="text"
+              readonly
+              value={launcher.settings.data_dir || "Loading directory..."}
+              class="flex-1 px-4 py-2.5 rounded-xl bg-white/4 border border-white/10 text-xs font-mono text-neutral-200 outline-none select-all"
+            />
+            <button
+              onclick={() => launcher.pickGameDirectory()}
+              class="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-red-600/30 shrink-0 active:scale-95"
+              title="Browse and select base folder or drive"
+            >
+              <FolderOpen class="w-4 h-4" />
+              <span>Browse / Change</span>
+            </button>
+            <button
+              onclick={() => launcher.openFolder(launcher.settings.data_dir)}
+              class="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white transition-all cursor-pointer shrink-0 border border-white/10"
+              title="Open folder in File Explorer"
+            >
+              <FolderOpen class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Minecraft Instances Directory -->
+        <div class="p-4 rounded-xl bg-white/2 border border-white/6 space-y-2">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs text-neutral-200 font-bold block uppercase tracking-wide flex items-center gap-2">
+                <FolderTree class="w-3.5 h-3.5 text-cyan-400" />
+                <span>Minecraft Instances Directory</span>
+                <span class="px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 text-[10px] font-bold">Independent Path</span>
+              </div>
+              <p class="text-[11px] text-neutral-400">
+                Where your Minecraft game profiles, worlds, mod configurations, and resource packs live.
+              </p>
+            </div>
+            <button
+              onclick={() => launcher.resetInstancesDirectory()}
+              class="text-[11px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              title="Reset instances directory to default"
+            >
+              Reset Default
+            </button>
+          </div>
+          <div class="flex items-center gap-2 pt-1">
+            <input
+              type="text"
+              readonly
+              value={launcher.settings.instances_dir || "Loading directory..."}
+              class="flex-1 px-4 py-2.5 rounded-xl bg-white/4 border border-white/10 text-xs font-mono text-cyan-200 outline-none select-all"
+            />
+            <button
+              onclick={() => launcher.pickInstancesDirectory()}
+              class="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-cyan-600/30 shrink-0 active:scale-95"
+              title="Browse and select instances folder or drive"
+            >
+              <FolderTree class="w-4 h-4" />
+              <span>Browse / Change</span>
+            </button>
+            <button
+              onclick={() => launcher.openFolder(launcher.settings.instances_dir)}
+              class="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white transition-all cursor-pointer shrink-0 border border-white/10"
+              title="Open instances folder in File Explorer"
+            >
+              <FolderOpen class="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
+  {/if}
 
-    <div class="grid grid-cols-1 gap-4">
-      <!-- 1. Base Game Directory -->
-      <div class="p-4 rounded-xl bg-white/2 border border-white/6 space-y-2">
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="text-xs text-neutral-200 font-bold block uppercase tracking-wide">
-              Base Game & Core Assets Directory
-            </div>
-            <p class="text-[11px] text-neutral-400">
-              Shared Minecraft versions, libraries, runtime environments, and launcher cache.
-            </p>
-          </div>
-          <button
-            onclick={() => launcher.resetGameDirectory()}
-            class="text-[11px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
-            title="Reset base data directory to %APPDATA%\DigitalVigital"
-          >
-            Reset Default
-          </button>
-        </div>
-        <div class="flex items-center gap-2 pt-1">
-          <input
-            type="text"
-            readonly
-            value={launcher.settings.data_dir || "Loading directory..."}
-            class="flex-1 px-4 py-2.5 rounded-xl bg-white/4 border border-white/10 text-xs font-mono text-neutral-200 outline-none select-all"
-          />
-          <button
-            onclick={() => launcher.pickGameDirectory()}
-            class="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-red-600/30 shrink-0 active:scale-95"
-            title="Browse and select base folder or drive"
-          >
-            <FolderOpen class="w-4 h-4" />
-            <span>Browse / Change</span>
-          </button>
-          <button
-            onclick={() => launcher.openFolder(launcher.settings.data_dir)}
-            class="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white transition-all cursor-pointer shrink-0 border border-white/10"
-            title="Open folder in File Explorer"
-          >
-            <FolderOpen class="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      <!-- 2. Minecraft Instances Directory -->
-      <div class="p-4 rounded-xl bg-white/2 border border-white/6 space-y-2">
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="text-xs text-neutral-200 font-bold block uppercase tracking-wide flex items-center gap-2">
-              <FolderTree class="w-3.5 h-3.5 text-cyan-400" />
-              <span>Minecraft Instances Directory</span>
-              <span class="px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 text-[10px] font-bold">Independent Path</span>
-            </div>
-            <p class="text-[11px] text-neutral-400">
-              Where your Minecraft game profiles, worlds, mod configurations, and resource packs live.
-            </p>
-          </div>
-          <button
-            onclick={() => launcher.resetInstancesDirectory()}
-            class="text-[11px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
-            title="Reset instances directory to default"
-          >
-            Reset Default
-          </button>
-        </div>
-        <div class="flex items-center gap-2 pt-1">
-          <input
-            type="text"
-            readonly
-            value={launcher.settings.instances_dir || "Loading directory..."}
-            class="flex-1 px-4 py-2.5 rounded-xl bg-white/4 border border-white/10 text-xs font-mono text-cyan-200 outline-none select-all"
-          />
-          <button
-            onclick={() => launcher.pickInstancesDirectory()}
-            class="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-cyan-600/30 shrink-0 active:scale-95"
-            title="Browse and select instances folder or drive"
-          >
-            <FolderTree class="w-4 h-4" />
-            <span>Browse / Change</span>
-          </button>
-          <button
-            onclick={() => launcher.openFolder(launcher.settings.instances_dir)}
-            class="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white transition-all cursor-pointer shrink-0 border border-white/10"
-            title="Open instances folder in File Explorer"
-          >
-            <FolderOpen class="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Multi-Java Runtime Suite & Selection (Choose which Java is used) -->
-  <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-6 shadow-xl">
+  <!-- Multi-Java Runtime Suite & Selection (Desktop Only) -->
+  {#if !launcher.isMobile}
+    <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-6 shadow-xl">
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-white/8">
       <div class="flex items-center gap-3">
@@ -500,6 +503,7 @@
       </div>
     {/if}
   </div>
+  {/if}
 
   <!-- Memory & Performance Presets -->
   <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-5">
@@ -515,7 +519,7 @@
       <div>
         <div class="flex justify-between items-center text-xs mb-2">
           <span class="text-neutral-300 font-medium"
-            >Maximum RAM Allocation (Xmx)</span
+            >{launcher.isMobile ? "Maximum Mobile RAM Allocation" : "Maximum RAM Allocation (Xmx)"}</span
           >
           <span class="text-red-400 font-bold font-mono text-sm"
             >{launcher.settings.default_max_memory_mb || 4096} MB ({(
@@ -526,8 +530,8 @@
         <input
           type="range"
           min="1024"
-          max="32768"
-          step="512"
+          max={launcher.isMobile ? "8192" : "32768"}
+          step={launcher.isMobile ? "256" : "512"}
           value={launcher.settings.default_max_memory_mb || 4096}
           oninput={(e) => {
             launcher.settings.default_max_memory_mb = parseInt((e.target as HTMLInputElement).value, 10);
@@ -541,16 +545,24 @@
         <div
           class="flex justify-between text-[11px] text-neutral-400 mt-1.5 font-medium"
         >
-          <span>1 GB</span>
-          <span>4 GB (Default)</span>
-          <span>8 GB (Recommended)</span>
-          <span>16 GB</span>
-          <span>32 GB</span>
+          {#if launcher.isMobile}
+            <span>1 GB</span>
+            <span>2 GB</span>
+            <span>4 GB (Default)</span>
+            <span>6 GB</span>
+            <span>8 GB (Max)</span>
+          {:else}
+            <span>1 GB</span>
+            <span>4 GB (Default)</span>
+            <span>8 GB (Recommended)</span>
+            <span>16 GB</span>
+            <span>32 GB</span>
+          {/if}
         </div>
 
         <!-- 1-Click Fast Presets -->
         <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-3">
-          {#each [2048, 4096, 6144, 8192, 12288, 16384] as ramVal}
+          {#each (launcher.isMobile ? [1024, 2048, 3072, 4096, 6144, 8192] : [2048, 4096, 6144, 8192, 12288, 16384]) as ramVal}
             <button
               type="button"
               onclick={async () => {
@@ -568,182 +580,226 @@
       </div>
     </div>
 
-    <!-- GC Preset Selection -->
-    <div class="pt-2">
-      <div class="text-xs text-neutral-300 font-medium mb-2.5">
-        JVM Performance & Garbage Collector Preset
+    {#if !launcher.isMobile}
+      <!-- GC Preset Selection -->
+      <div class="pt-2">
+        <div class="text-xs text-neutral-300 font-medium mb-2.5">
+          JVM Performance & Garbage Collector Preset
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button
+            onclick={() => (launcher.settings.performance_preset = "turbo")}
+            class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
+              .settings.performance_preset === 'turbo' || launcher.settings.performance_preset === 'client'
+              ? 'bg-red-500/15 border-red-500/40 text-white'
+              : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
+          >
+            <div class="text-xs font-bold uppercase tracking-wide">
+              Turbo Client (Recommended)
+            </div>
+            <div class="text-xs text-neutral-400 mt-1">
+              Max FPS, 25ms GC frame pacing, string deduplication
+            </div>
+          </button>
+
+          <button
+            onclick={() => (launcher.settings.performance_preset = "zgc")}
+            class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
+              .settings.performance_preset === 'zgc'
+              ? 'bg-red-500/15 border-red-500/40 text-white'
+              : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
+          >
+            <div class="text-xs font-bold uppercase tracking-wide">
+              Generational ZGC
+            </div>
+            <div class="text-xs text-neutral-400 mt-1">
+              Sub-millisecond pause times for 6GB+ RAM
+            </div>
+          </button>
+
+          <button
+            onclick={() => (launcher.settings.performance_preset = "vanilla")}
+            class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
+              .settings.performance_preset === 'vanilla'
+              ? 'bg-red-500/15 border-red-500/40 text-white'
+              : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
+          >
+            <div class="text-xs font-bold uppercase tracking-wide">
+              Vanilla Standard
+            </div>
+            <div class="text-xs text-neutral-400 mt-1">
+              Default Java standard arguments
+            </div>
+          </button>
+        </div>
       </div>
+
+      <!-- Custom JVM Args -->
+      <div>
+        <div class="text-xs text-neutral-300 font-medium mb-2">
+          Additional JVM Arguments
+        </div>
+        <input
+          type="text"
+          bind:value={launcher.settings.custom_jvm_args}
+          placeholder="-XX:+AlwaysPreTouch -Dsun.rmi.dgc.server.gcInterval=2147483646"
+          class="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-mono text-white placeholder-neutral-500 outline-none focus:border-red-500/50"
+        />
+      </div>
+    {/if}
+  </div>
+
+  <!-- Hardware GPU Acceleration (Desktop Only) -->
+  {#if !launcher.isMobile}
+    <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-4">
+      <h3
+        class="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2"
+      >
+        <Cpu class="w-4 h-4 text-sky-400" />
+        <span>Hardware GPU Preference (DirectX / OpenGL Acceleration)</span>
+      </h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <button
+          onclick={() => (launcher.settings.selected_gpu = "auto")}
+          class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
+            .settings.selected_gpu === 'auto'
+            ? 'bg-red-500/15 border-red-500/40 text-white'
+            : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
+        >
+          <div class="text-xs font-bold">Auto Priority (Discrete GPU first)</div>
+          <div class="text-xs text-neutral-400 mt-1">
+            Directs Windows to enforce High Performance GPU for javaw.exe
+          </div>
+        </button>
+
+        {#each launcher.detectedGpus as gpu}
+          <button
+            onclick={() => (launcher.settings.selected_gpu = gpu.id)}
+            class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
+              .settings.selected_gpu === gpu.id
+              ? 'bg-red-500/15 border-red-500/40 text-white'
+              : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
+          >
+            <div class="text-xs font-bold truncate">{gpu.name}</div>
+            <div class="text-xs text-neutral-400 mt-1">
+              {gpu.is_discrete
+                ? "Dedicated High Performance GPU"
+                : "Integrated GPU"}
+            </div>
+          </button>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  <!-- Launcher Behavior (Desktop Only) -->
+  {#if !launcher.isMobile}
+    <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-4">
+      <h3
+        class="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2"
+      >
+        <Radio class="w-4 h-4 text-rose-400" />
+        <span>Launcher Window Behavior & Discord RPC</span>
+      </h3>
+
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <button
-          onclick={() => (launcher.settings.performance_preset = "turbo")}
+          onclick={() => (launcher.settings.on_launch_action = "hide")}
           class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
-            .settings.performance_preset === 'turbo' || launcher.settings.performance_preset === 'client'
+            .settings.on_launch_action === 'hide'
             ? 'bg-red-500/15 border-red-500/40 text-white'
             : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
         >
-          <div class="text-xs font-bold uppercase tracking-wide">
-            Turbo Client (Recommended)
-          </div>
+          <div class="text-xs font-bold">Hide on Launch</div>
           <div class="text-xs text-neutral-400 mt-1">
-            Max FPS, 25ms GC frame pacing, string deduplication
+            Restores automatically when Minecraft exits
           </div>
         </button>
 
         <button
-          onclick={() => (launcher.settings.performance_preset = "zgc")}
+          onclick={() => (launcher.settings.on_launch_action = "keep")}
           class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
-            .settings.performance_preset === 'zgc'
+            .settings.on_launch_action === 'keep'
             ? 'bg-red-500/15 border-red-500/40 text-white'
             : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
         >
-          <div class="text-xs font-bold uppercase tracking-wide">
-            Generational ZGC
-          </div>
+          <div class="text-xs font-bold">Keep Open</div>
           <div class="text-xs text-neutral-400 mt-1">
-            Sub-millisecond pause times for 6GB+ RAM
+            Leaves the launcher open for console monitoring
           </div>
         </button>
 
         <button
-          onclick={() => (launcher.settings.performance_preset = "vanilla")}
+          onclick={() => (launcher.settings.on_launch_action = "close")}
           class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
-            .settings.performance_preset === 'vanilla'
+            .settings.on_launch_action === 'close'
             ? 'bg-red-500/15 border-red-500/40 text-white'
             : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
         >
-          <div class="text-xs font-bold uppercase tracking-wide">
-            Vanilla Standard
-          </div>
+          <div class="text-xs font-bold">Close Launcher</div>
           <div class="text-xs text-neutral-400 mt-1">
-            Default Java standard arguments
+            Terminates launcher process to free 100% RAM
           </div>
         </button>
       </div>
-    </div>
 
-    <!-- Custom JVM Args -->
-    <div>
-      <div class="text-xs text-neutral-300 font-medium mb-2">
-        Additional JVM Arguments
-      </div>
-      <input
-        type="text"
-        bind:value={launcher.settings.custom_jvm_args}
-        placeholder="-XX:+AlwaysPreTouch -Dsun.rmi.dgc.server.gcInterval=2147483646"
-        class="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-mono text-white placeholder-neutral-500 outline-none focus:border-red-500/50"
-      />
-    </div>
-  </div>
-
-  <!-- Hardware GPU Acceleration -->
-  <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-4">
-    <h3
-      class="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2"
-    >
-      <Cpu class="w-4 h-4 text-sky-400" />
-      <span>Hardware GPU Preference (DirectX / OpenGL Acceleration)</span>
-    </h3>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <button
-        onclick={() => (launcher.settings.selected_gpu = "auto")}
-        class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
-          .settings.selected_gpu === 'auto'
-          ? 'bg-red-500/15 border-red-500/40 text-white'
-          : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
-      >
-        <div class="text-xs font-bold">Auto Priority (Discrete GPU first)</div>
-        <div class="text-xs text-neutral-400 mt-1">
-          Directs Windows to enforce High Performance GPU for javaw.exe
-        </div>
-      </button>
-
-      {#each launcher.detectedGpus as gpu}
-        <button
-          onclick={() => (launcher.settings.selected_gpu = gpu.id)}
-          class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
-            .settings.selected_gpu === gpu.id
-            ? 'bg-red-500/15 border-red-500/40 text-white'
-            : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
-        >
-          <div class="text-xs font-bold truncate">{gpu.name}</div>
-          <div class="text-xs text-neutral-400 mt-1">
-            {gpu.is_discrete
-              ? "Dedicated High Performance GPU"
-              : "Integrated GPU"}
+      <!-- Discord RPC toggle -->
+      <div class="pt-2 flex items-center justify-between">
+        <div>
+          <div class="text-sm font-bold text-white">
+            Discord Rich Presence (RPC)
           </div>
-        </button>
-      {/each}
+          <div class="text-xs text-neutral-300">
+            Shows "Playing Minecraft on DV Client" with custom DV logo in your Discord status
+          </div>
+        </div>
+        <input
+          type="checkbox"
+          bind:checked={launcher.settings.enable_discord_rpc}
+          class="w-5 h-5 accent-red-500 rounded cursor-pointer"
+        />
+      </div>
     </div>
-  </div>
+  {/if}
 
-  <!-- Launcher Behavior -->
-  <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-4">
-    <h3
-      class="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2"
-    >
-      <Radio class="w-4 h-4 text-rose-400" />
-      <span>Launcher Window Behavior & Discord RPC</span>
-    </h3>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-      <button
-        onclick={() => (launcher.settings.on_launch_action = "hide")}
-        class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
-          .settings.on_launch_action === 'hide'
-          ? 'bg-red-500/15 border-red-500/40 text-white'
-          : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
-      >
-        <div class="text-xs font-bold">Hide on Launch</div>
-        <div class="text-xs text-neutral-400 mt-1">
-          Restores automatically when Minecraft exits
+  <!-- Mobile Environment & Hardware Card (Android Only) -->
+  {#if launcher.isMobile}
+    <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-4 shadow-xl">
+      <div class="flex items-center gap-3 pb-3 border-b border-white/8">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+          <Sparkles class="w-5 h-5" />
         </div>
-      </button>
-
-      <button
-        onclick={() => (launcher.settings.on_launch_action = "keep")}
-        class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
-          .settings.on_launch_action === 'keep'
-          ? 'bg-red-500/15 border-red-500/40 text-white'
-          : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
-      >
-        <div class="text-xs font-bold">Keep Open</div>
-        <div class="text-xs text-neutral-400 mt-1">
-          Leaves the launcher open for console monitoring
-        </div>
-      </button>
-
-      <button
-        onclick={() => (launcher.settings.on_launch_action = "close")}
-        class="p-4 rounded-xl border text-left transition-all cursor-pointer {launcher
-          .settings.on_launch_action === 'close'
-          ? 'bg-red-500/15 border-red-500/40 text-white'
-          : 'bg-white/3 border-white/8 text-neutral-300 hover:text-white'}"
-      >
-        <div class="text-xs font-bold">Close Launcher</div>
-        <div class="text-xs text-neutral-400 mt-1">
-          Terminates launcher process to free 100% RAM
-        </div>
-      </button>
-    </div>
-
-    <!-- Discord RPC toggle -->
-    <div class="pt-2 flex items-center justify-between">
-      <div>
-        <div class="text-sm font-bold text-white">
-          Discord Rich Presence (RPC)
-        </div>
-        <div class="text-xs text-neutral-300">
-          Shows "Playing Minecraft on DV Client" with custom DV logo in your Discord status
+        <div>
+          <h3 class="text-sm font-bold uppercase tracking-wider text-white">
+            Android Mobile Hardware Profile
+          </h3>
+          <p class="text-xs text-neutral-400 mt-0.5">
+            Optimized for touch viewports, unified mobile SoCs, and sandboxed storage.
+          </p>
         </div>
       </div>
-      <input
-        type="checkbox"
-        bind:checked={launcher.settings.enable_discord_rpc}
-        class="w-5 h-5 accent-red-500 rounded cursor-pointer"
-      />
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="p-3.5 rounded-xl bg-white/2 border border-white/6 flex justify-between items-center">
+          <span class="text-neutral-400">Target Architecture</span>
+          <span class="text-emerald-400 font-mono font-bold">ARM64 (aarch64)</span>
+        </div>
+        <div class="p-3.5 rounded-xl bg-white/2 border border-white/6 flex justify-between items-center">
+          <span class="text-neutral-400">Graphics Acceleration</span>
+          <span class="text-white font-bold">Unified SoC (GLES / Vulkan)</span>
+        </div>
+        <div class="p-3.5 rounded-xl bg-white/2 border border-white/6 flex justify-between items-center">
+          <span class="text-neutral-400">Storage Environment</span>
+          <span class="text-white font-bold">Sandboxed App Directory</span>
+        </div>
+        <div class="p-3.5 rounded-xl bg-white/2 border border-white/6 flex justify-between items-center">
+          <span class="text-neutral-400">Zoom & Viewport</span>
+          <span class="text-emerald-400 font-bold">Locked 100% Native</span>
+        </div>
+      </div>
     </div>
-  </div>
+  {/if}
 
   <!-- Software & Launcher Updates Section -->
   <div

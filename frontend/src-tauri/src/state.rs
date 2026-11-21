@@ -25,6 +25,8 @@ pub struct LauncherInfo {
     pub version: String,
     pub author: String,
     pub repo_url: String,
+    pub platform: String,
+    pub is_mobile: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

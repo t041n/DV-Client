@@ -187,27 +187,34 @@
   <div
     class="hidden md:block p-3.5 rounded-2xl bg-white/4 border border-white/8 space-y-2.5 text-xs text-neutral-300"
   >
-    <div class="flex items-center justify-between">
-      <span class="flex items-center gap-2 text-neutral-400"
-        ><Coffee class="w-4 h-4 text-amber-400" /> Java</span
-      >
-      <span class="text-neutral-100 font-bold truncate max-w-[100px]">
-        {launcher.settings.custom_java_path
-          ? (launcher.detectedJavas.find((j) => j.path === launcher.settings.custom_java_path)?.display_name || "Custom Java")
-          : "Auto-Detect"}
-      </span>
-    </div>
-    <div class="flex items-center justify-between">
-      <span class="flex items-center gap-2 text-neutral-400"
-        ><Cpu class="w-4 h-4 text-sky-400" /> GPU</span
-      >
-      <span class="text-neutral-100 font-bold truncate max-w-[100px]">
-        {launcher.detectedGpus
-          .find((g) => g.is_discrete)
-          ?.name.replace(/NVIDIA|GeForce|AMD|Radeon/gi, "")
-          .trim() || "Dedicated"}
-      </span>
-    </div>
+    {#if !launcher.isMobile}
+      <div class="flex items-center justify-between">
+        <span class="flex items-center gap-2 text-neutral-400"
+          ><Coffee class="w-4 h-4 text-amber-400" /> Java</span
+        >
+        <span class="text-neutral-100 font-bold truncate max-w-[100px]">
+          {launcher.settings.custom_java_path
+            ? (launcher.detectedJavas.find((j) => j.path === launcher.settings.custom_java_path)?.display_name || "Custom Java")
+            : "Auto-Detect"}
+        </span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="flex items-center gap-2 text-neutral-400"
+          ><Cpu class="w-4 h-4 text-sky-400" /> GPU</span
+        >
+        <span class="text-neutral-100 font-bold truncate max-w-[100px]">
+          {launcher.detectedGpus
+            .find((g) => g.is_discrete)
+            ?.name.replace(/NVIDIA|GeForce|AMD|Radeon/gi, "")
+            .trim() || "Dedicated"}
+        </span>
+      </div>
+    {:else}
+      <div class="flex items-center justify-between">
+        <span class="text-neutral-400">Platform</span>
+        <span class="text-emerald-400 font-bold text-[11px] uppercase tracking-wider">Android ARM64</span>
+      </div>
+    {/if}
     <div
       class="flex items-center justify-between pt-2 border-t border-white/8 text-xs"
     >

@@ -166,14 +166,16 @@
       <!-- Quick Action Pill for Mods & Folder -->
       {#if launcher.activeInstance}
         <div class="flex items-center gap-2 mt-1 sm:mt-0">
-          <button
-            onclick={() => launcher.openModsFolder()}
-            title="Open instance folder"
-            class="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer"
-          >
-            <FolderOpen class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>Folder</span>
-          </button>
+          {#if !launcher.isMobile}
+            <button
+              onclick={() => launcher.openModsFolder()}
+              title="Open instance folder"
+              class="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer"
+            >
+              <FolderOpen class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span>Folder</span>
+            </button>
+          {/if}
           <button
             onclick={() => (launcher.activeTab = "mods")}
             title="Open Mod Studio"
@@ -324,8 +326,8 @@
       </div>
     {/if}
 
-    <!-- 1-Click Java Auto-Install Readiness Card -->
-    {#if launcher.activeInstance && !hasCompatibleJava && launcher.gameStatus !== "running"}
+    <!-- 1-Click Java Auto-Install Readiness Card (Desktop Only) -->
+    {#if !launcher.isMobile && launcher.activeInstance && !hasCompatibleJava && launcher.gameStatus !== "running"}
       <div
         class="relative z-10 p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/60 via-[#1e1508]/60 to-[#120d05]/70 border border-amber-500/35 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl backdrop-blur-sm"
       >
@@ -592,23 +594,30 @@
               >{launcher.settings.performance_preset}</span
             >
           </div>
-          <div class="flex justify-between items-center py-1">
-            <span class="text-neutral-400">Java Runtime</span>
-            <span class="text-white font-bold font-mono text-xs flex items-center gap-1.5">
-              {#if launcher.settings.custom_java_path}
-                <span class="text-cyan-400">Custom</span>
-                <span class="text-neutral-300 truncate max-w-[130px]" title={launcher.settings.custom_java_path}>
-                  {launcher.detectedJavas.find((j) => j.path === launcher.settings.custom_java_path)?.display_name || "Custom Java"}
-                </span>
-              {:else if hasCompatibleJava}
-                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span class="text-emerald-400 font-semibold">Java {reqJava} Ready</span>
-              {:else}
-                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                <span class="text-amber-400 font-semibold">Auto-Installs on Launch</span>
-              {/if}
-            </span>
-          </div>
+          {#if !launcher.isMobile}
+            <div class="flex justify-between items-center py-1">
+              <span class="text-neutral-400">Java Runtime</span>
+              <span class="text-white font-bold font-mono text-xs flex items-center gap-1.5">
+                {#if launcher.settings.custom_java_path}
+                  <span class="text-cyan-400">Custom</span>
+                  <span class="text-neutral-300 truncate max-w-[130px]" title={launcher.settings.custom_java_path}>
+                    {launcher.detectedJavas.find((j) => j.path === launcher.settings.custom_java_path)?.display_name || "Custom Java"}
+                  </span>
+                {:else if hasCompatibleJava}
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span class="text-emerald-400 font-semibold">Java {reqJava} Ready</span>
+                {:else}
+                  <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  <span class="text-amber-400 font-semibold">Auto-Installs on Launch</span>
+                {/if}
+              </span>
+            </div>
+          {:else}
+            <div class="flex justify-between items-center py-1">
+              <span class="text-neutral-400">Environment</span>
+              <span class="text-emerald-400 font-bold font-mono text-xs">Android ARM64</span>
+            </div>
+          {/if}
         </div>
       </div>
 

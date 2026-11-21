@@ -56,11 +56,24 @@ fn is_version_newer(latest: &str, current: &str) -> bool {
 
 #[tauri::command]
 pub fn get_launcher_info() -> LauncherInfo {
+    let platform = if cfg!(target_os = "android") {
+        "android".to_string()
+    } else if cfg!(target_os = "windows") {
+        "windows".to_string()
+    } else if cfg!(target_os = "macos") {
+        "macos".to_string()
+    } else {
+        "linux".to_string()
+    };
+    let is_mobile = cfg!(target_os = "android") || cfg!(target_os = "ios");
+
     LauncherInfo {
         name: branding::APP_NAME.to_string(),
         version: branding::APP_VERSION.to_string(),
         author: "Digital Vigital".to_string(),
         repo_url: "https://github.com/t041n/DV-Client".to_string(),
+        platform,
+        is_mobile,
     }
 }
 

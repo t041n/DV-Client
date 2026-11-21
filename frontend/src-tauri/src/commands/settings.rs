@@ -7,22 +7,30 @@ use tauri::{AppHandle, Emitter, State};
 
 #[tauri::command]
 pub async fn detect_java(state: State<'_, AppState>) -> Result<Vec<JavaDto>, String> {
-    let extra_dir = {
-        let cm = state.config_mgr.lock().await;
-        cm.config.runtimes_dir()
-    };
-    let installations = JavaDetector::scan_system_with_extra(&[extra_dir]);
-    Ok(installations
-        .into_iter()
-        .map(|j| JavaDto {
-            path: j.path.to_string_lossy().to_string(),
-            vendor: j.vendor,
-            version: j.full_version,
-            major_version: j.major_version,
-            display_name: j.display_name,
-            is_recommended: j.major_version >= 21,
-        })
-        .collect())
+    #[cfg(target_os = "android")]
+    {
+        let _ = state;
+        return Ok(Vec::new());
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let extra_dir = {
+            let cm = state.config_mgr.lock().await;
+            cm.config.runtimes_dir()
+        };
+        let installations = JavaDetector::scan_system_with_extra(&[extra_dir]);
+        Ok(installations
+            .into_iter()
+            .map(|j| JavaDto {
+                path: j.path.to_string_lossy().to_string(),
+                vendor: j.vendor,
+                version: j.full_version,
+                major_version: j.major_version,
+                display_name: j.display_name,
+                is_recommended: j.major_version >= 21,
+            })
+            .collect())
+    }
 }
 
 #[tauri::command]
@@ -31,56 +39,78 @@ pub async fn install_java(
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let runtimes_dir = {
-        let cm = state.config_mgr.lock().await;
-        cm.config.runtimes_dir()
-    };
+    #[cfg(target_os = "android")]
+    {
+        let _ = (major_version, app_handle, state);
+        return Err("Java installer is not supported on Android.".to_string());
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let runtimes_dir = {
+            let cm = state.config_mgr.lock().await;
+            cm.config.runtimes_dir()
+        };
 
-    let handle = app_handle.clone();
-    let progress_cb = move |percent: f32, status: &str| {
-        let _ = handle.emit(
-            "java-install-progress",
-            serde_json::json!({
-                "status": status,
-                "percent": percent,
-            }),
-        );
-    };
+        let handle = app_handle.clone();
+        let progress_cb = move |percent: f32, status: &str| {
+            let _ = handle.emit(
+                "java-install-progress",
+                serde_json::json!({
+                    "status": status,
+                    "percent": percent,
+                }),
+            );
+        };
 
-    let path = JavaInstaller::install_java_version(major_version, &runtimes_dir, progress_cb)
-        .await
-        .map_err(|e| e.to_string())?;
+        let path = JavaInstaller::install_java_version(major_version, &runtimes_dir, progress_cb)
+            .await
+            .map_err(|e| e.to_string())?;
 
-    Ok(path.to_string_lossy().to_string())
+        Ok(path.to_string_lossy().to_string())
+    }
 }
 
 #[tauri::command]
 pub async fn pick_custom_java() -> Result<Option<JavaDto>, String> {
-    let picked = tokio::task::spawn_blocking(JavaDetector::pick_java_with_dialog)
-        .await
-        .map_err(|e| e.to_string())?;
+    #[cfg(target_os = "android")]
+    {
+        return Ok(None);
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let picked = tokio::task::spawn_blocking(JavaDetector::pick_java_with_dialog)
+            .await
+            .map_err(|e| e.to_string())?;
 
-    Ok(picked.map(|j| JavaDto {
-        path: j.path.to_string_lossy().to_string(),
-        vendor: j.vendor,
-        version: j.full_version,
-        major_version: j.major_version,
-        display_name: j.display_name,
-        is_recommended: j.major_version >= 21,
-    }))
+        Ok(picked.map(|j| JavaDto {
+            path: j.path.to_string_lossy().to_string(),
+            vendor: j.vendor,
+            version: j.full_version,
+            major_version: j.major_version,
+            display_name: j.display_name,
+            is_recommended: j.major_version >= 21,
+        }))
+    }
 }
 
 #[tauri::command]
 pub async fn detect_gpus() -> Result<Vec<GpuDto>, String> {
-    let gpus = GpuDetector::detect_gpus();
-    Ok(gpus
-        .into_iter()
-        .map(|g| GpuDto {
-            id: g.id,
-            name: g.name,
-            is_discrete: g.is_discrete,
-        })
-        .collect())
+    #[cfg(target_os = "android")]
+    {
+        return Ok(Vec::new());
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let gpus = GpuDetector::detect_gpus();
+        Ok(gpus
+            .into_iter()
+            .map(|g| GpuDto {
+                id: g.id,
+                name: g.name,
+                is_discrete: g.is_discrete,
+            })
+            .collect())
+    }
 }
 
 #[tauri::command]
