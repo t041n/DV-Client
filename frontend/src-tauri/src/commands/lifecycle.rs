@@ -66,367 +66,444 @@ pub async fn launch_game(
         }
     };
 
-    let req_ver = JavaDetector::required_java_major_version(&inst.minecraft_version);
-    let runtimes_dir = config_clone.runtimes_dir();
-    let detected_javas = JavaDetector::scan_system_with_extra(&[runtimes_dir.clone()]);
-    let custom_path = inst
-        .custom_java_path
-        .as_ref()
-        .or(config_clone.default_java_path.as_ref());
+    #[cfg(target_os = "android")]
+    {
+        let inst_dir = inst.instance_dir(config_clone.instances_dir());
+        let game_dir = inst.game_dir(config_clone.instances_dir());
+        let _ = std::fs::create_dir_all(&game_dir);
 
-    let req_name = match req_ver {
-        8 => "Java 8",
-        16 | 17 => "Java 17",
-        _ => "Java 21",
-    };
-
-    let java_path = if let Some(p) = custom_path.filter(|p| {
-        p.exists()
-            && JavaDetector::inspect_executable(p)
-                .map(|i| i.major_version >= req_ver)
-                .unwrap_or(false)
-    }) {
-        p.clone()
-    } else if let Some(j) = JavaDetector::find_best_java(&detected_javas, &inst.minecraft_version) {
-        j.path.clone()
-    } else {
-        // Automatic Seamless Java Installation: If missing, auto-download & configure runtime
-        let handle = app_handle.clone();
-        let _ = handle.emit(
-            "launch-status",
-            &format!(
-                "Auto-installing {} for Minecraft {}...",
-                req_name, inst.minecraft_version
-            ),
+        // Sync instance mods and in-game universal player skin/cape pack
+        sync_instance_mods(&inst_dir, &game_dir);
+        let _ = dv_launcher::skins::ensure_in_game_skin_pack(
+            &game_dir,
+            &account.username,
+            Some(&account.id),
+            Some(&inst.minecraft_version),
         );
-        let progress_handle = app_handle.clone();
-        let installed = JavaInstaller::install_java_version(req_ver, &runtimes_dir, move |pct, status| {
-            let _ = progress_handle.emit(
-                "download-progress",
-                serde_json::json!({
-                    "current": (pct * 100.0) as u32,
-                    "total": 100,
-                    "percent": (pct * 100.0).clamp(0.0, 100.0),
-                    "status": format!("[{}] {}", req_name, status),
+
+        let handle_for_prog = app_handle.clone();
+        let _ = handle_for_prog.emit("launch-status", "Verifying and downloading game assets & libraries...");
+
+        let pipeline = InstallationPipeline::new(&config_clone);
+        let pkg_res = pipeline
+            .install_version(
+                &inst.minecraft_version,
+                &inst_dir,
+                &config_clone,
+                Some(move |prog: DownloadProgress| {
+                    let _ = handle_for_prog.emit(
+                        "download-progress",
+                        serde_json::json!({
+                            "current": prog.completed_items,
+                            "total": prog.total_items,
+                            "percent": prog.percent,
+                            "status": prog.current_item,
+                            "bytes_downloaded": prog.bytes_downloaded,
+                            "total_bytes": prog.total_bytes,
+                        }),
+                    );
                 }),
-            );
-        })
-        .await
-        .map_err(|e| {
-            state.is_launching.store(false, Ordering::SeqCst);
-            format!(
-                "Failed to auto-install {} for Minecraft {}: {}",
-                req_name, inst.minecraft_version, e
+                Some(|status: &str| {
+                    info!("[Tauri Pipeline] {}", status);
+                }),
             )
-        })?;
+            .await;
 
-        let _ = app_handle.emit(
-            "launch-status",
-            &format!("{} ready. Preparing game...", req_name),
-        );
-        installed
-    };
+        match pkg_res {
+            Ok(_) => {}
+            Err(e) => {
+                state.is_launching.store(false, Ordering::SeqCst);
+                let _ = app_handle.emit("launch-status", format!("Installation error: {}", e));
+                return Err(format!("Download failed: {}", e));
+            }
+        };
 
-    // Final verification of Java executable
-    if let Some(inspected) = JavaDetector::inspect_executable(&java_path) {
-        if inspected.major_version < req_ver {
-            state.is_launching.store(false, Ordering::SeqCst);
-            return Err(format!(
-                "Incompatible Java version: Selected runtime '{}' is Java {}, but Minecraft {} strictly requires Java {} (or newer).",
-                java_path.display(),
-                inspected.major_version,
-                inst.minecraft_version,
-                req_ver
-            ));
-        }
+        let _ = app_handle.emit("launch-status", "Resolving mod loader libraries...");
+
+        let loader_client = ModLoaderClient::new();
+        let _ = loader_client
+            .resolve_and_download_loader(
+                &inst.mod_loader,
+                &inst.minecraft_version,
+                inst.loader_version.as_deref(),
+                &config_clone.shared_libraries_dir(),
+            )
+            .await;
+
+        state.is_launching.store(false, Ordering::SeqCst);
+        let _ = app_handle.emit("launch-status", "Game assets, mods & skin pack successfully prepared!");
+        let _ = app_handle.emit("game-state-change", "finished");
+        return Ok(());
     }
 
-    let inst_dir = inst.instance_dir(config_clone.instances_dir());
-    let game_dir = inst.game_dir(config_clone.instances_dir());
-    let _ = std::fs::create_dir_all(&game_dir);
+    #[cfg(not(target_os = "android"))]
+    {
+        let java_path = {
+            let req_ver = JavaDetector::required_java_major_version(&inst.minecraft_version);
+            let runtimes_dir = config_clone.runtimes_dir();
+            let detected_javas = JavaDetector::scan_system_with_extra(&[runtimes_dir.clone()]);
+            let custom_path = inst
+                .custom_java_path
+                .as_ref()
+                .or(config_clone.default_java_path.as_ref());
 
-    // Sync instance mods and in-game universal player skin/cape pack (with GUID and version compatibility)
-    sync_instance_mods(&inst_dir, &game_dir);
-    let _ = dv_launcher::skins::ensure_in_game_skin_pack(
-        &game_dir,
-        &account.username,
-        Some(&account.id),
-        Some(&inst.minecraft_version),
-    );
+            let req_name = match req_ver {
+                8 => "Java 8",
+                16 | 17 => "Java 17",
+                _ => "Java 21",
+            };
 
-    let handle_for_prog = app_handle.clone();
-    let _ = handle_for_prog.emit("launch-status", "Verifying and downloading game assets...");
-
-    let pipeline = InstallationPipeline::new(&config_clone);
-    let pkg_res = pipeline
-        .install_version(
-            &inst.minecraft_version,
-            &inst_dir,
-            &config_clone,
-            Some(move |prog: DownloadProgress| {
-                let _ = handle_for_prog.emit(
-                    "download-progress",
-                    serde_json::json!({
-                        "current": prog.completed_items,
-                        "total": prog.total_items,
-                        "percent": prog.percent,
-                        "status": prog.current_item,
-                        "bytes_downloaded": prog.bytes_downloaded,
-                        "total_bytes": prog.total_bytes,
-                    }),
+            let java_path = if let Some(p) = custom_path.filter(|p| {
+                p.exists()
+                    && JavaDetector::inspect_executable(p)
+                        .map(|i| i.major_version >= req_ver)
+                        .unwrap_or(false)
+            }) {
+                p.clone()
+            } else if let Some(j) = JavaDetector::find_best_java(&detected_javas, &inst.minecraft_version) {
+                j.path.clone()
+            } else {
+                // Automatic Seamless Java Installation: If missing, auto-download & configure runtime
+                let handle = app_handle.clone();
+                let _ = handle.emit(
+                    "launch-status",
+                    &format!(
+                        "Auto-installing {} for Minecraft {}...",
+                        req_name, inst.minecraft_version
+                    ),
                 );
-            }),
-            Some(|status: &str| {
-                info!("[Tauri Pipeline] {}", status);
-            }),
-        )
-        .await;
+                let progress_handle = app_handle.clone();
+                let installed = JavaInstaller::install_java_version(req_ver, &runtimes_dir, move |pct, status| {
+                    let _ = progress_handle.emit(
+                        "download-progress",
+                        serde_json::json!({
+                            "current": (pct * 100.0) as u32,
+                            "total": 100,
+                            "percent": (pct * 100.0).clamp(0.0, 100.0),
+                            "status": format!("[{}] {}", req_name, status),
+                        }),
+                    );
+                })
+                .await
+                .map_err(|e| {
+                    state.is_launching.store(false, Ordering::SeqCst);
+                    format!(
+                        "Failed to auto-install {} for Minecraft {}: {}",
+                        req_name, inst.minecraft_version, e
+                    )
+                })?;
 
-    let version_pkg = match pkg_res {
-        Ok(pkg) => pkg,
-        Err(e) => {
-            state.is_launching.store(false, Ordering::SeqCst);
-            let _ = app_handle.emit("launch-status", format!("Installation error: {}", e));
-            return Err(format!("Download failed: {}", e));
+                let _ = app_handle.emit(
+                    "launch-status",
+                    &format!("{} ready. Preparing game...", req_name),
+                );
+                installed
+            };
+
+            // Final verification of Java executable
+            if let Some(inspected) = JavaDetector::inspect_executable(&java_path) {
+                if inspected.major_version < req_ver {
+                    state.is_launching.store(false, Ordering::SeqCst);
+                    return Err(format!(
+                        "Incompatible Java version: Selected runtime '{}' is Java {}, but Minecraft {} strictly requires Java {} (or newer).",
+                        java_path.display(),
+                        inspected.major_version,
+                        inst.minecraft_version,
+                        req_ver
+                    ));
+                }
+            }
+
+            java_path
+        };
+
+        let inst_dir = inst.instance_dir(config_clone.instances_dir());
+        let game_dir = inst.game_dir(config_clone.instances_dir());
+        let _ = std::fs::create_dir_all(&game_dir);
+
+        // Sync instance mods and in-game universal player skin/cape pack (with GUID and version compatibility)
+        sync_instance_mods(&inst_dir, &game_dir);
+        let _ = dv_launcher::skins::ensure_in_game_skin_pack(
+            &game_dir,
+            &account.username,
+            Some(&account.id),
+            Some(&inst.minecraft_version),
+        );
+
+        let handle_for_prog = app_handle.clone();
+        let _ = handle_for_prog.emit("launch-status", "Verifying and downloading game assets...");
+
+        let pipeline = InstallationPipeline::new(&config_clone);
+        let pkg_res = pipeline
+            .install_version(
+                &inst.minecraft_version,
+                &inst_dir,
+                &config_clone,
+                Some(move |prog: DownloadProgress| {
+                    let _ = handle_for_prog.emit(
+                        "download-progress",
+                        serde_json::json!({
+                            "current": prog.completed_items,
+                            "total": prog.total_items,
+                            "percent": prog.percent,
+                            "status": prog.current_item,
+                            "bytes_downloaded": prog.bytes_downloaded,
+                            "total_bytes": prog.total_bytes,
+                        }),
+                    );
+                }),
+                Some(|status: &str| {
+                    info!("[Tauri Pipeline] {}", status);
+                }),
+            )
+            .await;
+
+        let version_pkg = match pkg_res {
+            Ok(pkg) => pkg,
+            Err(e) => {
+                state.is_launching.store(false, Ordering::SeqCst);
+                let _ = app_handle.emit("launch-status", format!("Installation error: {}", e));
+                return Err(format!("Download failed: {}", e));
+            }
+        };
+
+        let _ = app_handle.emit("launch-status", "Resolving mod loader libraries...");
+
+        let loader_client = ModLoaderClient::new();
+        let loader_info = loader_client
+            .resolve_and_download_loader(
+                &inst.mod_loader,
+                &inst.minecraft_version,
+                inst.loader_version.as_deref(),
+                &config_clone.shared_libraries_dir(),
+            )
+            .await
+            .unwrap_or_else(|_| ModLoaderLaunchInfo::default());
+
+        let mut combined_jvm_args = inst.custom_jvm_args.clone();
+        if !config_clone.custom_jvm_args.trim().is_empty() {
+            for arg in config_clone.custom_jvm_args.split_whitespace() {
+                combined_jvm_args.push(arg.to_string());
+            }
         }
-    };
+        combined_jvm_args.extend(loader_info.extra_jvm_args);
 
-    let _ = app_handle.emit("launch-status", "Resolving mod loader libraries...");
+        let client_jar = config_clone
+            .shared_versions_dir()
+            .join(&inst.minecraft_version)
+            .join(format!("{}.jar", inst.minecraft_version));
 
-    let loader_client = ModLoaderClient::new();
-    let loader_info = loader_client
-        .resolve_and_download_loader(
-            &inst.mod_loader,
-            &inst.minecraft_version,
-            inst.loader_version.as_deref(),
-            &config_clone.shared_libraries_dir(),
-        )
-        .await
-        .unwrap_or_else(|_| ModLoaderLaunchInfo::default());
+        let access_token = {
+            let mut a = state.auth_client.lock().await;
+            match a.get_or_refresh_token(&account.id).await {
+                Ok(tok) => tok,
+                Err(_) => account
+                    .access_token
+                    .clone()
+                    .unwrap_or_else(|| "0".to_string()),
+            }
+        };
 
-    let mut combined_jvm_args = inst.custom_jvm_args.clone();
-    if !config_clone.custom_jvm_args.trim().is_empty() {
-        for arg in config_clone.custom_jvm_args.split_whitespace() {
-            combined_jvm_args.push(arg.to_string());
-        }
-    }
-    combined_jvm_args.extend(loader_info.extra_jvm_args);
-
-    let client_jar = config_clone
-        .shared_versions_dir()
-        .join(&inst.minecraft_version)
-        .join(format!("{}.jar", inst.minecraft_version));
-
-    let access_token = {
-        let mut a = state.auth_client.lock().await;
-        match a.get_or_refresh_token(&account.id).await {
-            Ok(tok) => tok,
-            Err(_) => account
-                .access_token
-                .clone()
-                .unwrap_or_else(|| "0".to_string()),
-        }
-    };
-
-    // On Windows, prefer javaw.exe (GUI subsystem) over java.exe (Console subsystem)
-    let java_executable = if cfg!(target_os = "windows") {
-        if let Some(parent) = java_path.parent() {
-            let javaw = parent.join("javaw.exe");
-            if javaw.exists() {
-                javaw
+        // On Windows, prefer javaw.exe (GUI subsystem) over java.exe (Console subsystem)
+        let java_executable = if cfg!(target_os = "windows") {
+            if let Some(parent) = java_path.parent() {
+                let javaw = parent.join("javaw.exe");
+                if javaw.exists() {
+                    javaw
+                } else {
+                    java_path
+                }
             } else {
                 java_path
             }
         } else {
             java_path
-        }
-    } else {
-        java_path
-    };
+        };
 
-    let launch_ctx = LaunchContext {
-        version_package: version_pkg,
-        instance_dir: inst_dir.clone(),
-        game_dir: game_dir.clone(),
-        assets_dir: config_clone.shared_assets_dir(),
-        libraries_dir: config_clone.shared_libraries_dir(),
-        client_jar_path: client_jar,
-        java_executable,
-        player_name: account.username.clone(),
-        player_uuid: account.id.clone(),
-        access_token,
-        user_type: if account.account_type == "microsoft" {
-            "msa".to_string()
-        } else {
-            "offline".to_string()
-        },
-        xuid: "".to_string(),
-        min_memory_mb: {
-            let max_r = if config_clone.default_max_memory_mb > 0 {
+        let launch_ctx = LaunchContext {
+            version_package: version_pkg,
+            instance_dir: inst_dir.clone(),
+            game_dir: game_dir.clone(),
+            assets_dir: config_clone.shared_assets_dir(),
+            libraries_dir: config_clone.shared_libraries_dir(),
+            client_jar_path: client_jar,
+            java_executable,
+            player_name: account.username.clone(),
+            player_uuid: account.id.clone(),
+            access_token,
+            user_type: if account.account_type == "microsoft" {
+                "msa".to_string()
+            } else {
+                "offline".to_string()
+            },
+            xuid: "".to_string(),
+            min_memory_mb: {
+                let max_r = if config_clone.default_max_memory_mb > 0 {
+                    config_clone.default_max_memory_mb
+                } else if inst.max_memory_mb > 0 {
+                    inst.max_memory_mb
+                } else {
+                    4096
+                };
+                std::cmp::min(
+                    if config_clone.default_min_memory_mb > 0 {
+                        config_clone.default_min_memory_mb
+                    } else {
+                        1024
+                    },
+                    max_r.saturating_div(2).max(1024),
+                )
+            },
+            max_memory_mb: if config_clone.default_max_memory_mb > 0 {
                 config_clone.default_max_memory_mb
             } else if inst.max_memory_mb > 0 {
                 inst.max_memory_mb
             } else {
                 4096
-            };
-            std::cmp::min(
-                if config_clone.default_min_memory_mb > 0 {
-                    config_clone.default_min_memory_mb
-                } else {
-                    1024
-                },
-                max_r.saturating_div(2).max(1024),
-            )
-        },
-        max_memory_mb: if config_clone.default_max_memory_mb > 0 {
-            config_clone.default_max_memory_mb
-        } else if inst.max_memory_mb > 0 {
-            inst.max_memory_mb
-        } else {
-            4096
-        },
-        window_width: inst.window_width,
-        window_height: inst.window_height,
-        custom_jvm_args: Some(combined_jvm_args),
-        performance_preset: Some(config_clone.performance_preset.clone()),
-        mod_loader: inst.mod_loader.clone(),
-        extra_classpath: loader_info.extra_libraries,
-        main_class_override: loader_info.main_class,
-        extra_game_args: loader_info.extra_game_args,
-    };
+            },
+            window_width: inst.window_width,
+            window_height: inst.window_height,
+            custom_jvm_args: Some(combined_jvm_args),
+            performance_preset: Some(config_clone.performance_preset.clone()),
+            mod_loader: inst.mod_loader.clone(),
+            extra_classpath: loader_info.extra_libraries,
+            main_class_override: loader_info.main_class,
+            extra_game_args: loader_info.extra_game_args,
+        };
 
-    let command_args = LaunchArgumentBuilder::build_command_args(&launch_ctx);
-    let gpu_id = config_clone
-        .selected_gpu
-        .unwrap_or_else(|| "auto".to_string());
-    GpuDetector::configure_windows_gpu_preference(&launch_ctx.java_executable, &gpu_id);
-    let gpu_env = GpuDetector::get_env_vars_for_gpu(&gpu_id);
+        let command_args = LaunchArgumentBuilder::build_command_args(&launch_ctx);
+        let gpu_id = config_clone
+            .selected_gpu
+            .unwrap_or_else(|| "auto".to_string());
+        GpuDetector::configure_windows_gpu_preference(&launch_ctx.java_executable, &gpu_id);
+        let gpu_env = GpuDetector::get_env_vars_for_gpu(&gpu_id);
 
-    let _ = app_handle.emit("launch-status", "Launching Minecraft JVM...");
+        let _ = app_handle.emit("launch-status", "Launching Minecraft JVM...");
 
-    if config_clone.privacy.enable_discord_rpc {
-        state.discord_rpc.set_playing_with_options(
-            &inst.minecraft_version,
-            config_clone.privacy.discord_show_version,
-            config_clone.privacy.discord_show_elapsed_time,
-            None,
-            Some(&inst.mod_loader),
-        );
-    }
-
-    let sup = state.supervisor.clone();
-    let app_handle_bg = app_handle.clone();
-    let bg_game_dir = game_dir.clone();
-    let on_launch = config_clone.on_launch_action.clone();
-    let is_launching = state.is_launching.clone();
-
-    // Spawn supervisor execution in background task
-    tokio::spawn(async move {
-        let launch_res = sup.launch_with_env(command_args, bg_game_dir, gpu_env).await;
-        is_launching.store(false, Ordering::SeqCst);
-
-        match launch_res {
-            Ok(0) => {
-                let _ = app_handle_bg.emit("game-state-change", "finished");
-                let _ = app_handle_bg.emit("launch-status", "Game process exited normally.");
-            }
-            Ok(code) => {
-                let analysis = sup.get_last_crash_analysis().await;
-                let is_real_crash = analysis.as_ref().map(|a| a.is_fatal).unwrap_or(false);
-
-                if is_real_crash {
-                    let _ = app_handle_bg.emit("game-state-change", "crashed");
-                    if let Some(ref a) = analysis {
-                        let _ = app_handle_bg.emit("game-crashed", serde_json::to_value(a).unwrap_or_default());
-                        let _ = app_handle_bg.emit("launch-status", format!("Crash: {}", a.headline));
-                    } else {
-                        let _ = app_handle_bg.emit("launch-status", format!("Process crashed with code {}", code));
-                    }
-                } else {
-                    let _ = app_handle_bg.emit("game-state-change", "finished");
-                    if let Some(ref a) = analysis {
-                        let _ = app_handle_bg.emit("game-hint", serde_json::to_value(a).unwrap_or_default());
-                    }
-                    let _ = app_handle_bg.emit("launch-status", "Session finished.");
-                }
-
-                // If window was hidden on launch, restore it
-                if on_launch == "hide" {
-                    if let Some(win) = app_handle_bg.get_webview_window("main") {
-                        let _ = win.show();
-                        let _ = win.set_focus();
-                    }
-                }
-            }
-            Err(e) => {
-                let _ = app_handle_bg.emit("game-state-change", "crashed");
-                let _ = app_handle_bg.emit("launch-status", format!("Launch failed: {}", e));
-            }
+        if config_clone.privacy.enable_discord_rpc {
+            state.discord_rpc.set_playing_with_options(
+                &inst.minecraft_version,
+                config_clone.privacy.discord_show_version,
+                config_clone.privacy.discord_show_elapsed_time,
+                None,
+                Some(&inst.mod_loader),
+            );
         }
-    });
 
-    // Startup health check: wait briefly to detect immediate early crashes
-    tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+        let sup = state.supervisor.clone();
+        let app_handle_bg = app_handle.clone();
+        let bg_game_dir = game_dir.clone();
+        let on_launch = config_clone.on_launch_action.clone();
+        let is_launching = state.is_launching.clone();
 
-    // Check if the process crashed immediately during startup
-    if !state.supervisor.is_active() {
-        state.is_launching.store(false, Ordering::SeqCst);
-        if let Some(analysis) = state.supervisor.get_last_crash_analysis().await {
-            if analysis.is_fatal {
-                let _ = app_handle.emit("game-state-change", "crashed");
-                let _ = app_handle.emit("game-crashed", serde_json::to_value(&analysis).unwrap_or_default());
-                return Err(format!(
-                    "[{}]: {}. Suggested Fix: {}",
-                    analysis.category, analysis.headline, analysis.recommended_action
-                ));
+        // Spawn supervisor execution in background task
+        tokio::spawn(async move {
+            let launch_res = sup.launch_with_env(command_args, bg_game_dir, gpu_env).await;
+            is_launching.store(false, Ordering::SeqCst);
+
+            match launch_res {
+                Ok(0) => {
+                    let _ = app_handle_bg.emit("game-state-change", "finished");
+                    let _ = app_handle_bg.emit("launch-status", "Game process exited normally.");
+                }
+                Ok(code) => {
+                    let analysis = sup.get_last_crash_analysis().await;
+                    let is_real_crash = analysis.as_ref().map(|a| a.is_fatal).unwrap_or(false);
+
+                    if is_real_crash {
+                        let _ = app_handle_bg.emit("game-state-change", "crashed");
+                        if let Some(ref a) = analysis {
+                            let _ = app_handle_bg.emit("game-crashed", serde_json::to_value(a).unwrap_or_default());
+                            let _ = app_handle_bg.emit("launch-status", format!("Crash: {}", a.headline));
+                        } else {
+                            let _ = app_handle_bg.emit("launch-status", format!("Process crashed with code {}", code));
+                        }
+                    } else {
+                        let _ = app_handle_bg.emit("game-state-change", "finished");
+                        if let Some(ref a) = analysis {
+                            let _ = app_handle_bg.emit("game-hint", serde_json::to_value(a).unwrap_or_default());
+                        }
+                        let _ = app_handle_bg.emit("launch-status", "Session finished.");
+                    }
+
+                    // If window was hidden on launch, restore it
+                    if on_launch == "hide" {
+                        if let Some(win) = app_handle_bg.get_webview_window("main") {
+                            let _ = win.show();
+                            let _ = win.set_focus();
+                        }
+                    }
+                }
+                Err(e) => {
+                    let _ = app_handle_bg.emit("game-state-change", "crashed");
+                    let _ = app_handle_bg.emit("launch-status", format!("Launch failed: {}", e));
+                }
+            }
+        });
+
+        // Startup health check: wait briefly to detect immediate early crashes
+        tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+
+        // Check if the process crashed immediately during startup
+        if !state.supervisor.is_active() {
+            state.is_launching.store(false, Ordering::SeqCst);
+            if let Some(analysis) = state.supervisor.get_last_crash_analysis().await {
+                if analysis.is_fatal {
+                    let _ = app_handle.emit("game-state-change", "crashed");
+                    let _ = app_handle.emit("game-crashed", serde_json::to_value(&analysis).unwrap_or_default());
+                    return Err(format!(
+                        "[{}]: {}. Suggested Fix: {}",
+                        analysis.category, analysis.headline, analysis.recommended_action
+                    ));
+                } else {
+                    let _ = app_handle.emit("game-state-change", "finished");
+                    return Ok(());
+                }
             } else {
                 let _ = app_handle.emit("game-state-change", "finished");
                 return Ok(());
             }
-        } else {
-            let _ = app_handle.emit("game-state-change", "finished");
-            return Ok(());
         }
-    }
 
-    state.is_launching.store(false, Ordering::SeqCst);
-    let _ = app_handle.emit("launch-status", "Minecraft is currently running");
-    let _ = app_handle.emit("game-state-change", "running");
+        state.is_launching.store(false, Ordering::SeqCst);
+        let _ = app_handle.emit("launch-status", "Minecraft is currently running");
+        let _ = app_handle.emit("game-state-change", "running");
 
-    if config_clone.privacy.enable_discord_rpc {
-        let child_pid = state.supervisor.get_child_pid();
-        state.discord_rpc.set_playing_with_options(
-            &inst.minecraft_version,
-            config_clone.privacy.discord_show_version,
-            config_clone.privacy.discord_show_elapsed_time,
-            child_pid,
-            Some(&inst.mod_loader),
-        );
-    }
-
-    // Update last_played on instance
-    {
-        let mgr = state.instance_mgr.lock().await;
-        if let Some(mut inst_mut) = mgr.instances.get(&inst.id).cloned() {
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            inst_mut.last_played = Some(now);
-            let _ = mgr.save_instance(&inst_mut);
+        if config_clone.privacy.enable_discord_rpc {
+            let child_pid = state.supervisor.get_child_pid();
+            state.discord_rpc.set_playing_with_options(
+                &inst.minecraft_version,
+                config_clone.privacy.discord_show_version,
+                config_clone.privacy.discord_show_elapsed_time,
+                child_pid,
+                Some(&inst.mod_loader),
+            );
         }
-    }
 
-    // Window on-launch action
-    if config_clone.on_launch_action == "hide" {
-        if let Some(win) = app_handle.get_webview_window("main") {
-            let _ = win.hide();
+        // Update last_played on instance
+        {
+            let mgr = state.instance_mgr.lock().await;
+            if let Some(mut inst_mut) = mgr.instances.get(&inst.id).cloned() {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+                inst_mut.last_played = Some(now);
+                let _ = mgr.save_instance(&inst_mut);
+            }
         }
-    } else if config_clone.on_launch_action == "close" {
-        app_handle.exit(0);
-    }
 
-    Ok(())
+        // Window on-launch action
+        if config_clone.on_launch_action == "hide" {
+            if let Some(win) = app_handle.get_webview_window("main") {
+                let _ = win.hide();
+            }
+        } else if config_clone.on_launch_action == "close" {
+            app_handle.exit(0);
+        }
+
+        Ok(())
+    }
 }
 
 #[tauri::command]

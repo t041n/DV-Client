@@ -505,82 +505,74 @@
   </div>
   {/if}
 
-  <!-- Memory & Performance Presets -->
-  <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-5">
-    <h3
-      class="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2"
-    >
-      <HardDrive class="w-4 h-4 text-purple-400" />
-      <span>Memory & Garbage Collection Optimization</span>
-    </h3>
+  <!-- Memory & Performance Presets (Desktop Only) -->
+  {#if !launcher.isMobile}
+    <div class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 space-y-5">
+      <h3
+        class="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2"
+      >
+        <HardDrive class="w-4 h-4 text-purple-400" />
+        <span>Memory & Garbage Collection Optimization</span>
+      </h3>
 
-    <!-- RAM Sliders -->
-    <div class="space-y-4">
-      <div>
-        <div class="flex justify-between items-center text-xs mb-2">
-          <span class="text-neutral-300 font-medium"
-            >{launcher.isMobile ? "Maximum Mobile RAM Allocation" : "Maximum RAM Allocation (Xmx)"}</span
+      <!-- RAM Sliders -->
+      <div class="space-y-4">
+        <div>
+          <div class="flex justify-between items-center text-xs mb-2">
+            <span class="text-neutral-300 font-medium"
+              >Maximum RAM Allocation (Xmx)</span
+            >
+            <span class="text-red-400 font-bold font-mono text-sm"
+              >{launcher.settings.default_max_memory_mb || 4096} MB ({(
+                (launcher.settings.default_max_memory_mb || 4096) / 1024
+              ).toFixed(1)} GB)</span
+            >
+          </div>
+          <input
+            type="range"
+            min="1024"
+            max="32768"
+            step="512"
+            value={launcher.settings.default_max_memory_mb || 4096}
+            oninput={(e) => {
+              launcher.settings.default_max_memory_mb = parseInt((e.target as HTMLInputElement).value, 10);
+            }}
+            onchange={async (e) => {
+              launcher.settings.default_max_memory_mb = parseInt((e.target as HTMLInputElement).value, 10);
+              await launcher.saveSettings();
+            }}
+            class="w-full accent-red-500 cursor-pointer h-2 bg-white/10 rounded-lg"
+          />
+          <div
+            class="flex justify-between text-[11px] text-neutral-400 mt-1.5 font-medium"
           >
-          <span class="text-red-400 font-bold font-mono text-sm"
-            >{launcher.settings.default_max_memory_mb || 4096} MB ({(
-              (launcher.settings.default_max_memory_mb || 4096) / 1024
-            ).toFixed(1)} GB)</span
-          >
-        </div>
-        <input
-          type="range"
-          min="1024"
-          max={launcher.isMobile ? "8192" : "32768"}
-          step={launcher.isMobile ? "256" : "512"}
-          value={launcher.settings.default_max_memory_mb || 4096}
-          oninput={(e) => {
-            launcher.settings.default_max_memory_mb = parseInt((e.target as HTMLInputElement).value, 10);
-          }}
-          onchange={async (e) => {
-            launcher.settings.default_max_memory_mb = parseInt((e.target as HTMLInputElement).value, 10);
-            await launcher.saveSettings();
-          }}
-          class="w-full accent-red-500 cursor-pointer h-2 bg-white/10 rounded-lg"
-        />
-        <div
-          class="flex justify-between text-[11px] text-neutral-400 mt-1.5 font-medium"
-        >
-          {#if launcher.isMobile}
-            <span>1 GB</span>
-            <span>2 GB</span>
-            <span>4 GB (Default)</span>
-            <span>6 GB</span>
-            <span>8 GB (Max)</span>
-          {:else}
             <span>1 GB</span>
             <span>4 GB (Default)</span>
             <span>8 GB (Recommended)</span>
             <span>16 GB</span>
             <span>32 GB</span>
-          {/if}
-        </div>
+          </div>
 
-        <!-- 1-Click Fast Presets -->
-        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-3">
-          {#each (launcher.isMobile ? [1024, 2048, 3072, 4096, 6144, 8192] : [2048, 4096, 6144, 8192, 12288, 16384]) as ramVal}
-            <button
-              type="button"
-              onclick={async () => {
-                launcher.settings.default_max_memory_mb = ramVal;
-                await launcher.saveSettings();
-              }}
-              class="py-1.5 px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer border {launcher.settings.default_max_memory_mb === ramVal
-                ? 'bg-red-500/20 border-red-500/50 text-white shadow-md shadow-red-500/20'
-                : 'bg-white/4 border-white/8 text-neutral-400 hover:text-white hover:bg-white/8'}"
-            >
-              {ramVal / 1024} GB
-            </button>
-          {/each}
+          <!-- 1-Click Fast Presets -->
+          <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-3">
+            {#each [2048, 4096, 6144, 8192, 12288, 16384] as ramVal}
+              <button
+                type="button"
+                onclick={async () => {
+                  launcher.settings.default_max_memory_mb = ramVal;
+                  await launcher.saveSettings();
+                }}
+                class="py-1.5 px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer border {launcher.settings.default_max_memory_mb === ramVal
+                  ? 'bg-red-500/20 border-red-500/50 text-white shadow-md shadow-red-500/20'
+                  : 'bg-white/4 border-white/8 text-neutral-400 hover:text-white hover:bg-white/8'}"
+              >
+                {ramVal / 1024} GB
+              </button>
+            {/each}
+          </div>
         </div>
       </div>
-    </div>
 
-    {#if !launcher.isMobile}
       <!-- GC Preset Selection -->
       <div class="pt-2">
         <div class="text-xs text-neutral-300 font-medium mb-2.5">
@@ -646,8 +638,8 @@
           class="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-mono text-white placeholder-neutral-500 outline-none focus:border-red-500/50"
         />
       </div>
-    {/if}
-  </div>
+    </div>
+  {/if}
 
   <!-- Hardware GPU Acceleration (Desktop Only) -->
   {#if !launcher.isMobile}

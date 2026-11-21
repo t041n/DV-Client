@@ -574,26 +574,35 @@
         <h3 class="font-bold text-base text-white">Execution Parameters</h3>
 
         <div class="mt-3.5 space-y-2 text-xs text-neutral-300">
-          <div
-            class="flex justify-between items-center py-1 border-b border-white/5"
-          >
-            <span class="text-neutral-400">Allocated RAM</span>
-            <span class="text-white font-bold font-mono"
-              >{launcher.settings.default_max_memory_mb ||
-                launcher.activeInstance?.max_memory_mb ||
-                4096} MB ({(
-                (launcher.settings.default_max_memory_mb || 4096) / 1024
-              ).toFixed(1)} GB)</span
+          {#if !launcher.isMobile}
+            <div
+              class="flex justify-between items-center py-1 border-b border-white/5"
             >
-          </div>
-          <div
-            class="flex justify-between items-center py-1 border-b border-white/5"
-          >
-            <span class="text-neutral-400">GC Preset</span>
-            <span class="text-red-400 font-bold uppercase"
-              >{launcher.settings.performance_preset}</span
+              <span class="text-neutral-400">Allocated RAM</span>
+              <span class="text-white font-bold font-mono"
+                >{launcher.settings.default_max_memory_mb ||
+                  launcher.activeInstance?.max_memory_mb ||
+                  4096} MB ({(
+                  (launcher.settings.default_max_memory_mb || 4096) / 1024
+                ).toFixed(1)} GB)</span
+              >
+            </div>
+            <div
+              class="flex justify-between items-center py-1 border-b border-white/5"
             >
-          </div>
+              <span class="text-neutral-400">GC Preset</span>
+              <span class="text-red-400 font-bold uppercase"
+                >{launcher.settings.performance_preset}</span
+              >
+            </div>
+          {:else}
+            <div
+              class="flex justify-between items-center py-1 border-b border-white/5"
+            >
+              <span class="text-neutral-400">Memory Allocation</span>
+              <span class="text-emerald-400 font-bold font-mono">System Managed</span>
+            </div>
+          {/if}
           {#if !launcher.isMobile}
             <div class="flex justify-between items-center py-1">
               <span class="text-neutral-400">Java Runtime</span>
