@@ -7,7 +7,7 @@ edition = "2021"
 
 [lib]
 name = "dv_core"
-crate-type = ["lib", "cdylib"]
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
 name = "dv-launcher-app"
