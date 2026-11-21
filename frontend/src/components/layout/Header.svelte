@@ -31,40 +31,40 @@
   }
 </script>
 
-<header class="h-16 border-b border-white/8 bg-[#0a0c12]/90 backdrop-blur-xl px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0 z-30 select-none">
+<header class="h-14 sm:h-16 border-b border-white/8 bg-[#0a0c12]/90 backdrop-blur-xl px-2 sm:px-6 flex items-center justify-between gap-2 shrink-0 z-30 select-none">
   <!-- Left: Active Profile Quick Selector -->
-  <div class="relative">
+  <div class="relative min-w-0">
     <button
       onclick={() => showInstanceDropdown = !showInstanceDropdown}
-      class="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer group"
+      class="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer group max-w-[150px] sm:max-w-[240px] md:max-w-none"
     >
-      <div class="w-8 h-8 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 group-hover:scale-105 transition-transform">
-        <Box class="w-4 h-4" />
+      <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 group-hover:scale-105 transition-transform shrink-0">
+        <Box class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
       </div>
 
-      <div class="text-left">
-        <div class="flex items-center gap-2">
-          <span class="text-sm font-bold text-white tracking-tight">
-            {launcher.activeInstance?.name || "No Profile Selected"}
+      <div class="text-left min-w-0">
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <span class="text-xs sm:text-sm font-bold text-white tracking-tight truncate">
+            {launcher.activeInstance?.name || "No Profile"}
           </span>
           {#if launcher.activeInstance}
-            <span class="text-[11px] px-2 py-0.5 rounded border {getLoaderColor(launcher.activeInstance.mod_loader)} uppercase font-semibold">
+            <span class="text-[9px] sm:text-[11px] px-1 sm:px-2 py-0.5 rounded border {getLoaderColor(launcher.activeInstance.mod_loader)} uppercase font-semibold shrink-0">
               {launcher.activeInstance.mod_loader}
             </span>
           {/if}
         </div>
-        <div class="text-xs text-neutral-300 font-medium">
-          {launcher.activeInstance ? `Minecraft ${launcher.activeInstance.mc_version}` : "Select a profile to play"}
+        <div class="text-[10px] sm:text-xs text-neutral-300 font-medium truncate hidden sm:block">
+          {launcher.activeInstance ? `Minecraft ${launcher.activeInstance.mc_version}` : "Select a profile"}
         </div>
       </div>
 
-      <ChevronDown class="w-4 h-4 text-neutral-400 group-hover:text-white transition-transform {showInstanceDropdown ? 'rotate-180' : ''}" />
+      <ChevronDown class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 group-hover:text-white transition-transform shrink-0 {showInstanceDropdown ? 'rotate-180' : ''}" />
     </button>
 
     <!-- Dropdown Menu -->
     {#if showInstanceDropdown}
       <div 
-        class="absolute left-0 mt-2 w-76 rounded-2xl bg-[#0f121b] border border-white/12 shadow-2xl p-2.5 z-50 backdrop-blur-3xl animate-in fade-in slide-in-from-top-2 duration-150"
+        class="absolute left-0 mt-2 w-72 sm:w-76 rounded-2xl bg-[#0f121b] border border-white/12 shadow-2xl p-2.5 z-50 backdrop-blur-3xl animate-in fade-in slide-in-from-top-2 duration-150"
       >
         <div class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-neutral-400 flex items-center justify-between border-b border-white/8 mb-1.5">
           <span>Switch Profile</span>
@@ -106,7 +106,7 @@
   </div>
 
   <!-- Center: Performance Engine Indicator -->
-  <div class="hidden md:flex items-center gap-3 px-4 py-2 rounded-full bg-white/4 border border-white/8 text-xs text-neutral-300">
+  <div class="hidden lg:flex items-center gap-3 px-4 py-2 rounded-full bg-white/4 border border-white/8 text-xs text-neutral-300">
     <div class="flex items-center gap-1.5 text-red-400 font-bold uppercase tracking-wide">
       <Zap class="w-4 h-4 fill-red-400/20" />
       <span>DV TURBO ENGINE</span>
@@ -119,25 +119,25 @@
   </div>
 
   <!-- Right: Account Profile Pill & Update Pill -->
-  <div class="flex items-center gap-3">
+  <div class="flex items-center gap-2 sm:gap-3 shrink-0">
     {#if launcher.updateInfo?.has_update}
       <button
         onclick={() => (launcher.showUpdateModal = true)}
-        class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all cursor-pointer shadow-lg shadow-emerald-500/10 animate-pulse hover:animate-none"
+        class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all cursor-pointer shadow-lg shadow-emerald-500/10 animate-pulse hover:animate-none"
         title="New version available: {launcher.updateInfo.latest_version}"
       >
-        <Sparkles class="w-3.5 h-3.5 text-emerald-400" />
-        <span class="hidden sm:inline">Update Available</span>
-        <span class="text-white font-mono bg-emerald-500/30 px-1.5 py-0.5 rounded text-[11px] font-bold">{launcher.updateInfo.latest_version}</span>
+        <Sparkles class="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+        <span class="hidden md:inline">Update</span>
+        <span class="text-white font-mono bg-emerald-500/30 px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] font-bold">{launcher.updateInfo.latest_version}</span>
       </button>
     {/if}
 
     <button
       onclick={() => launcher.showAccountModal = true}
-      class="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer group"
+      class="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer group max-w-[140px] sm:max-w-[200px] md:max-w-none"
     >
       {#if launcher.activeAccount}
-        <div class="relative w-8 h-8 rounded-lg overflow-hidden bg-black/40 border border-white/10 shrink-0">
+        <div class="relative w-7 h-7 sm:w-8 sm:h-8 rounded-lg overflow-hidden bg-black/40 border border-white/10 shrink-0">
           <img 
             src={getAvatarUrl()} 
             alt={launcher.activeAccount.username}
@@ -147,27 +147,27 @@
             }}
           />
         </div>
-        <div class="text-left">
-          <div class="flex items-center gap-1.5">
-            <span class="text-sm font-bold text-white tracking-tight">{launcher.activeAccount.username}</span>
+        <div class="text-left min-w-0">
+          <div class="flex items-center gap-1 sm:gap-1.5">
+            <span class="text-xs sm:text-sm font-bold text-white tracking-tight truncate">{launcher.activeAccount.username}</span>
             {#if launcher.activeAccount.account_type === "microsoft"}
-              <ShieldCheck class="w-3.5 h-3.5 text-sky-400" />
+              <ShieldCheck class="w-3.5 h-3.5 text-sky-400 shrink-0" />
             {/if}
           </div>
-          <div class="text-xs text-neutral-400 font-medium">
+          <div class="text-[10px] sm:text-xs text-neutral-400 font-medium truncate hidden sm:block">
             {launcher.activeAccount.account_type === "microsoft" ? "Microsoft Account" : "Offline Player"}
           </div>
         </div>
       {:else}
-        <div class="w-8 h-8 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
-          <User class="w-4 h-4" />
+        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
+          <User class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </div>
-        <div class="text-left">
-          <div class="text-sm font-bold text-white">No Username</div>
-          <div class="text-xs text-red-400 font-semibold">Choose account</div>
+        <div class="text-left min-w-0">
+          <div class="text-xs sm:text-sm font-bold text-white truncate">Choose Account</div>
+          <div class="text-[10px] sm:text-xs text-red-400 font-semibold truncate hidden sm:block">Required</div>
         </div>
       {/if}
-      <ChevronDown class="w-4 h-4 text-neutral-400 group-hover:text-white transition-colors" />
+      <ChevronDown class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 group-hover:text-white transition-colors shrink-0" />
     </button>
   </div>
 </header>

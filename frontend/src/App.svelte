@@ -36,6 +36,7 @@
 
 <div
   class="flex h-screen w-screen overflow-hidden bg-[#08090d] text-white select-none font-sans"
+  style="padding-left: env(safe-area-inset-left, 0); padding-right: env(safe-area-inset-right, 0); padding-top: env(safe-area-inset-top, 0); padding-bottom: env(safe-area-inset-bottom, 0);"
 >
   <!-- Left Navigation Sidebar -->
   <Sidebar />

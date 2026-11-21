@@ -55,7 +55,7 @@
   );
 </script>
 
-<div class="h-full overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
+<div class="h-full overflow-y-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
   <!-- Software Update Notification Banner -->
   {#if launcher.updateInfo?.has_update && !launcher.dismissedUpdateBanner}
     <div
@@ -112,7 +112,7 @@
 
   <!-- Main Launch Hero Card -->
   <div
-    class="relative rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br from-[#12141c] via-[#0c0d14] to-[#18090d] shadow-2xl p-8 flex flex-col justify-between min-h-[300px]"
+    class="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br from-[#12141c] via-[#0c0d14] to-[#18090d] shadow-2xl p-4 sm:p-6 lg:p-8 flex flex-col justify-between min-h-[250px] sm:min-h-[300px]"
   >
     <!-- Ambient Red Specular Flare -->
     <div
@@ -123,27 +123,27 @@
     ></div>
 
     <!-- Top Info Row in Hero -->
-    <div class="relative z-10 flex items-start justify-between">
+    <div class="relative z-10 flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
       <div>
         <div
-          class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold tracking-wide uppercase mb-3"
+          class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold tracking-wide uppercase mb-2 sm:mb-3"
         >
           <Zap class="w-3.5 h-3.5 fill-red-400" />
           <span>Ultra-Low Latency Engine</span>
         </div>
-        <h2 class="text-3xl font-extrabold text-white tracking-tight">
+        <h2 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">
           {launcher.activeInstance
             ? launcher.activeInstance.name
             : "Select or Create Profile"}
         </h2>
         <div
-          class="flex items-center gap-3 mt-2.5 text-xs text-neutral-300 font-medium"
+          class="flex items-center gap-2 sm:gap-3 mt-2 text-xs text-neutral-300 font-medium flex-wrap"
         >
           {#if launcher.activeInstance}
             <span
-              class="px-2.5 py-0.5 rounded border {getLoaderColor(
+              class="px-2 py-0.5 rounded border {getLoaderColor(
                 launcher.activeInstance.mod_loader,
-              )} font-bold uppercase tracking-wide"
+              )} font-bold uppercase tracking-wide text-[11px]"
             >
               {launcher.activeInstance.mod_loader}
             </span>
@@ -153,7 +153,7 @@
             >
             <span class="text-neutral-500">•</span>
             <span class="text-neutral-300"
-              >{launcher.installedMods.length} mods installed</span
+              >{launcher.installedMods.length} mods</span
             >
           {:else}
             <span class="text-neutral-400"
@@ -165,21 +165,21 @@
 
       <!-- Quick Action Pill for Mods & Folder -->
       {#if launcher.activeInstance}
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 mt-1 sm:mt-0">
           <button
             onclick={() => launcher.openModsFolder()}
             title="Open instance folder"
-            class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
+            class="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer"
           >
-            <FolderOpen class="w-4 h-4" />
+            <FolderOpen class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Folder</span>
           </button>
           <button
             onclick={() => (launcher.activeTab = "mods")}
             title="Open Mod Studio"
-            class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
+            class="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer"
           >
-            <Wrench class="w-4 h-4" />
+            <Wrench class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Mods</span>
           </button>
         </div>

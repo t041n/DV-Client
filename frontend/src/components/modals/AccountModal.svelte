@@ -28,10 +28,10 @@
 
 {#if launcher.showAccountModal}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+    class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
   >
     <div
-      class="relative w-full max-w-lg rounded-3xl bg-[#0e1017] border border-white/10 shadow-2xl p-6 space-y-6"
+      class="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl bg-[#0e1017] border border-white/10 shadow-2xl p-5 sm:p-6 space-y-5 sm:space-y-6"
     >
       <!-- Modal Header -->
       <div

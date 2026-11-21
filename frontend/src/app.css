@@ -23,12 +23,20 @@
     --accent-amber: #f59e0b;
   }
 
+  html,
   body {
     background-color: var(--bg-base);
     color: #f3f4f6;
     font-family: var(--font-sans);
     user-select: none;
+    -webkit-user-select: none;
     overflow: hidden;
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overscroll-behavior: none;
+    overscroll-behavior-y: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
