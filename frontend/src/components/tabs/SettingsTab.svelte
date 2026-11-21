@@ -790,8 +790,8 @@
           <span class="text-white font-bold">Unified SoC (GLES / Vulkan)</span>
         </div>
         <div class="p-3.5 rounded-xl bg-white/2 border border-white/6 flex justify-between items-center">
-          <span class="text-neutral-400">Storage Environment</span>
-          <span class="text-white font-bold">Sandboxed App Directory</span>
+          <span class="text-neutral-400">Storage & Files Access</span>
+          <span class="text-emerald-400 font-bold">All Files & Media Granted</span>
         </div>
         <div class="p-3.5 rounded-xl bg-white/2 border border-white/6 flex justify-between items-center">
           <span class="text-neutral-400">Zoom & Viewport</span>
