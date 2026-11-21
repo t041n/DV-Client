@@ -73,7 +73,10 @@ pub async fn logout_account(id: String, state: State<'_, AppState>) -> Result<()
 pub async fn start_microsoft_login(state: State<'_, AppState>) -> Result<String, String> {
     let mut auth = state.auth_client.lock().await;
     let url = auth.generate_login_url();
-    let _ = open::that(&url);
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = open::that(&url);
+    }
     Ok(url)
 }
 

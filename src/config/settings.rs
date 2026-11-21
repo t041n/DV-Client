@@ -289,12 +289,18 @@ impl LauncherConfig {
 }
 
 /// Open a native directory picker dialog using rfd.
+#[cfg(not(target_os = "android"))]
 pub fn pick_directory(title: &str, default_path: Option<&Path>) -> Option<PathBuf> {
     let mut dialog = rfd::FileDialog::new().set_title(title);
     if let Some(p) = default_path {
         dialog = dialog.set_directory(p);
     }
     dialog.pick_folder()
+}
+
+#[cfg(target_os = "android")]
+pub fn pick_directory(_title: &str, _default_path: Option<&Path>) -> Option<PathBuf> {
+    None
 }
 
 #[derive(Clone, Debug)]

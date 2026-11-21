@@ -526,29 +526,44 @@ pub async fn open_logs_folder(
     };
 
     let _ = std::fs::create_dir_all(&logs_dir);
-    open::that(&logs_dir).map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "android"))]
+    {
+        open::that(&logs_dir).map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = logs_dir;
+    }
     Ok(())
 }
 
 #[tauri::command]
 pub async fn export_logs(content: String) -> Result<Option<String>, String> {
-    let file = tokio::task::spawn_blocking(move || {
-        let now = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
-        let default_name = format!("minecraft_log_{}.log", now);
-        rfd::FileDialog::new()
-            .set_title("Export Minecraft Log")
-            .set_file_name(&default_name)
-            .add_filter("Log Files (*.log, *.txt)", &["log", "txt"])
-            .save_file()
-            .map(|p| {
-                let _ = std::fs::write(&p, content);
-                p.to_string_lossy().to_string()
-            })
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "android"))]
+    {
+        let file = tokio::task::spawn_blocking(move || {
+            let now = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
+            let default_name = format!("minecraft_log_{}.log", now);
+            rfd::FileDialog::new()
+                .set_title("Export Minecraft Log")
+                .set_file_name(&default_name)
+                .add_filter("Log Files (*.log, *.txt)", &["log", "txt"])
+                .save_file()
+                .map(|p| {
+                    let _ = std::fs::write(&p, content);
+                    p.to_string_lossy().to_string()
+                })
+        })
+        .await
+        .map_err(|e| e.to_string())?;
 
-    Ok(file)
+        Ok(file)
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = content;
+        Ok(None)
+    }
 }
 
 pub const DISCORD_CRASH_WEBHOOK_URL: &str =

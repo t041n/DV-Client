@@ -410,6 +410,7 @@ impl JavaDetector {
     }
 
     /// Prompt user with native file dialog to manually select a Java executable.
+    #[cfg(not(target_os = "android"))]
     pub fn pick_java_with_dialog() -> Option<JavaInstallation> {
         #[allow(unused_mut)]
         let mut dialog =
@@ -425,6 +426,11 @@ impl JavaDetector {
         } else {
             None
         }
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn pick_java_with_dialog() -> Option<JavaInstallation> {
+        None
     }
 }
 

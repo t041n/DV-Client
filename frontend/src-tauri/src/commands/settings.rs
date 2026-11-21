@@ -108,16 +108,23 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<SettingsDto, Str
 
 #[tauri::command]
 pub async fn pick_game_directory() -> Result<Option<String>, String> {
-    let picked = tokio::task::spawn_blocking(|| {
-        rfd::FileDialog::new()
-            .set_title("Select Digital Vigital Game & Data Directory")
-            .pick_folder()
-            .map(|p| p.to_string_lossy().to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "android"))]
+    {
+        let picked = tokio::task::spawn_blocking(|| {
+            rfd::FileDialog::new()
+                .set_title("Select Digital Vigital Game & Data Directory")
+                .pick_folder()
+                .map(|p| p.to_string_lossy().to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
 
-    Ok(picked)
+        Ok(picked)
+    }
+    #[cfg(target_os = "android")]
+    {
+        Ok(None)
+    }
 }
 
 #[tauri::command]
@@ -141,16 +148,23 @@ pub async fn reset_game_directory(state: State<'_, AppState>) -> Result<Settings
 
 #[tauri::command]
 pub async fn pick_instances_directory() -> Result<Option<String>, String> {
-    let picked = tokio::task::spawn_blocking(|| {
-        rfd::FileDialog::new()
-            .set_title("Select Digital Vigital Instances Directory")
-            .pick_folder()
-            .map(|p| p.to_string_lossy().to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "android"))]
+    {
+        let picked = tokio::task::spawn_blocking(|| {
+            rfd::FileDialog::new()
+                .set_title("Select Digital Vigital Instances Directory")
+                .pick_folder()
+                .map(|p| p.to_string_lossy().to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
 
-    Ok(picked)
+        Ok(picked)
+    }
+    #[cfg(target_os = "android")]
+    {
+        Ok(None)
+    }
 }
 
 #[tauri::command]

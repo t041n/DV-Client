@@ -66,13 +66,27 @@ pub fn get_launcher_info() -> LauncherInfo {
 
 #[tauri::command]
 pub async fn open_folder(path: String) -> Result<(), String> {
-    open::that(&path).map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "android"))]
+    {
+        open::that(&path).map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = path;
+    }
     Ok(())
 }
 
 #[tauri::command]
 pub async fn open_url(url: String) -> Result<(), String> {
-    open::that(&url).map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "android"))]
+    {
+        open::that(&url).map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = url;
+    }
     Ok(())
 }
 

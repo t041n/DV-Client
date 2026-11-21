@@ -209,6 +209,7 @@ pub fn run() {
                 }
             });
 
+            #[cfg(desktop)]
             if let Some(win) = handle.get_webview_window("main") {
                 if let Some(icon) = app.default_window_icon() {
                     let _ = win.set_icon(icon.clone());

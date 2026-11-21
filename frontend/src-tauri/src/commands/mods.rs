@@ -208,7 +208,14 @@ pub async fn open_mods_folder(instance_id: String, state: State<'_, AppState>) -
 
     let mods_dir = inst.game_dir(&mgr.instances_dir).join("mods");
     let _ = std::fs::create_dir_all(&mods_dir);
-    open::that(&mods_dir).map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "android"))]
+    {
+        open::that(&mods_dir).map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = mods_dir;
+    }
     Ok(())
 }
 
@@ -217,31 +224,39 @@ pub async fn import_local_mod(
     instance_id: String,
     state: State<'_, AppState>,
 ) -> Result<Option<String>, String> {
-    let mgr = state.instance_mgr.lock().await;
-    let inst = mgr
-        .instances
-        .get(&instance_id)
-        .ok_or_else(|| "Instance not found".to_string())?;
+    #[cfg(not(target_os = "android"))]
+    {
+        let mgr = state.instance_mgr.lock().await;
+        let inst = mgr
+            .instances
+            .get(&instance_id)
+            .ok_or_else(|| "Instance not found".to_string())?;
 
-    let mods_dir = inst.game_dir(&mgr.instances_dir).join("mods");
-    let file = tokio::task::spawn_blocking(|| {
-        rfd::FileDialog::new()
-            .set_title("Select Minecraft Mod (.jar)")
-            .add_filter("Minecraft Mod Jar (*.jar)", &["jar"])
-            .pick_file()
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+        let mods_dir = inst.game_dir(&mgr.instances_dir).join("mods");
+        let file = tokio::task::spawn_blocking(|| {
+            rfd::FileDialog::new()
+                .set_title("Select Minecraft Mod (.jar)")
+                .add_filter("Minecraft Mod Jar (*.jar)", &["jar"])
+                .pick_file()
+        })
+        .await
+        .map_err(|e| e.to_string())?;
 
-    if let Some(src) = file {
-        let dest = dv_launcher::instances::import_mod_file(&mods_dir, &src)
-            .map_err(|e| format!("Failed to import mod file: {}", e))?;
-        let name = dest
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| "mod.jar".to_string());
-        Ok(Some(name))
-    } else {
+        if let Some(src) = file {
+            let dest = dv_launcher::instances::import_mod_file(&mods_dir, &src)
+                .map_err(|e| format!("Failed to import mod file: {}", e))?;
+            let name = dest
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "mod.jar".to_string());
+            Ok(Some(name))
+        } else {
+            Ok(None)
+        }
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = (instance_id, state);
         Ok(None)
     }
 }

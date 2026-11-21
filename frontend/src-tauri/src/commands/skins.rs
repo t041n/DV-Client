@@ -2,30 +2,44 @@ use crate::state::PlayerSkinPayload;
 
 #[tauri::command]
 pub async fn pick_skin_file() -> Result<Option<String>, String> {
-    let file = tokio::task::spawn_blocking(|| {
-        rfd::FileDialog::new()
-            .set_title("Select Minecraft Skin PNG (64x64)")
-            .add_filter("Skin PNG", &["png"])
-            .pick_file()
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "android"))]
+    {
+        let file = tokio::task::spawn_blocking(|| {
+            rfd::FileDialog::new()
+                .set_title("Select Minecraft Skin PNG (64x64)")
+                .add_filter("Skin PNG", &["png"])
+                .pick_file()
+        })
+        .await
+        .map_err(|e| e.to_string())?;
 
-    Ok(file.map(|p| p.to_string_lossy().to_string()))
+        Ok(file.map(|p| p.to_string_lossy().to_string()))
+    }
+    #[cfg(target_os = "android")]
+    {
+        Ok(None)
+    }
 }
 
 #[tauri::command]
 pub async fn pick_cape_file() -> Result<Option<String>, String> {
-    let file = tokio::task::spawn_blocking(|| {
-        rfd::FileDialog::new()
-            .set_title("Select Minecraft Cape PNG (64x32)")
-            .add_filter("Cape PNG", &["png"])
-            .pick_file()
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "android"))]
+    {
+        let file = tokio::task::spawn_blocking(|| {
+            rfd::FileDialog::new()
+                .set_title("Select Minecraft Cape PNG (64x32)")
+                .add_filter("Cape PNG", &["png"])
+                .pick_file()
+        })
+        .await
+        .map_err(|e| e.to_string())?;
 
-    Ok(file.map(|p| p.to_string_lossy().to_string()))
+        Ok(file.map(|p| p.to_string_lossy().to_string()))
+    }
+    #[cfg(target_os = "android")]
+    {
+        Ok(None)
+    }
 }
 
 fn fast_base64_encode(data: &[u8]) -> String {
