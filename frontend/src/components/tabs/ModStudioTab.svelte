@@ -31,12 +31,23 @@
   const categories = MOD_CATEGORIES;
   const sortOptions = MOD_SORT_OPTIONS;
 
+  let lastInstanceId = $state<string | null>(null);
+
   onMount(() => {
     if (launcher.activeInstance) {
+      lastInstanceId = launcher.activeInstance.id;
       launcher.loadInstalledMods();
-      if (launcher.catalogMods.length === 0) {
-        launcher.fetchModsForSelectedProfile();
-      }
+      launcher.fetchModsForSelectedProfile();
+    }
+  });
+
+  $effect(() => {
+    const curId = launcher.activeInstance?.id ?? null;
+    if (curId && curId !== lastInstanceId) {
+      lastInstanceId = curId;
+      launcher.catalogMods = [];
+      launcher.loadInstalledMods();
+      launcher.fetchModsForSelectedProfile();
     }
   });
 
@@ -544,13 +555,14 @@
           <!-- Left: Title & Mod Provider Switcher -->
           <div class="flex items-center gap-3 flex-wrap">
             <h3
-              class="text-sm font-bold uppercase tracking-wider text-neutral-200 flex items-center gap-2"
+              class="text-sm font-bold uppercase tracking-wider text-neutral-200 flex items-center gap-2 flex-wrap"
             >
               <Compass class="w-4 h-4 text-emerald-400" />
               <span>Catalog</span>
               {#if launcher.activeInstance}
-                <span class="text-xs normal-case text-neutral-400 font-normal">
-                  ({launcher.activeInstance.mod_loader} {launcher.activeInstance.mc_version})
+                <span class="text-xs normal-case px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-semibold flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  Exact match: {launcher.activeInstance.mod_loader} {launcher.activeInstance.mc_version}
                 </span>
               {/if}
             </h3>
@@ -743,6 +755,12 @@
                     {:else}
                       <span class="px-1.5 py-0.2 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                         Modrinth
+                      </span>
+                    {/if}
+
+                    {#if launcher.activeInstance}
+                      <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold uppercase bg-white/6 text-white border border-white/10">
+                        MC {launcher.activeInstance.mc_version}
                       </span>
                     {/if}
 

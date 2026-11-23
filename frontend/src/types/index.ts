@@ -117,6 +117,7 @@ export interface CatalogModItem {
   downloads: number;
   categories: string[];
   website_url?: string;
+  versions?: string[];
 }
 
 export interface PlayerSkinPayload {

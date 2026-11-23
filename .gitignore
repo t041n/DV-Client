@@ -36,3 +36,4 @@ packaging/appimagetool
 *.dll
 !WebView2Loader.dll
 static-websites/
+frontend/src-tauri/gen/android/

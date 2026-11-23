@@ -326,6 +326,81 @@ impl CurseForgeClient {
         let bytes = dl_resp.bytes().await?;
         fs::write(&dest, bytes)?;
 
+        // Auto-install required dependencies from CurseForge file dependencies
+        if let Some(deps) = file_obj.get("dependencies").and_then(|d| d.as_array()) {
+            for dep in deps {
+                let relation_type = dep.get("relationType").and_then(|v| v.as_u64()).unwrap_or(0);
+                // relationType == 3 is RequiredDependency in CurseForge API
+                if relation_type == 3 {
+                    if let Some(dep_mod_id) = dep.get("modId").and_then(|v| v.as_u64()) {
+                        info!("Auto-installing required CurseForge dependency mod ID {} for MC {}...", dep_mod_id, mc_version);
+                        let _ = self.download_file_by_mod_id(dep_mod_id, mc_version, loader, dir).await;
+                    }
+                }
+            }
+        }
+
+        Ok(file_name)
+    }
+
+    async fn download_file_by_mod_id<P: AsRef<Path>>(
+        &self,
+        mod_id: u64,
+        mc_version: &str,
+        loader: &str,
+        mods_dir: P,
+    ) -> Result<String, LoaderError> {
+        let dir = mods_dir.as_ref();
+        let loader_type = Self::map_loader_type(Some(loader));
+        let mut url = format!("{}/mods/{}/files?pageSize=10", CURSEFORGE_API_BASE, mod_id);
+        if !mc_version.is_empty() {
+            url.push_str(&format!("&gameVersion={}", urlencoding_encode(mc_version)));
+        }
+        if loader_type > 0 {
+            url.push_str(&format!("&modLoaderType={}", loader_type));
+        }
+
+        let resp = self.client.get(&url).send().await?.error_for_status()?;
+        let body: serde_json::Value = resp.json().await?;
+        let files = body.get("data").and_then(|d| d.as_array()).ok_or_else(|| {
+            LoaderError::Custom(format!("No files available for CurseForge dependency mod ID {}", mod_id))
+        })?;
+
+        let file_obj = files
+            .iter()
+            .find(|f| f.get("releaseType").and_then(|v| v.as_u64()) == Some(1))
+            .or_else(|| files.first())
+            .ok_or_else(|| LoaderError::Custom("No downloadable dependency files found".to_string()))?;
+
+        let file_id = file_obj
+            .get("id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LoaderError::Custom("Dependency file missing ID".to_string()))?;
+
+        let file_name = file_obj
+            .get("fileName")
+            .and_then(|v| v.as_str())
+            .unwrap_or("dependency.jar")
+            .to_string();
+
+        let download_url = if let Some(u) = file_obj.get("downloadUrl").and_then(|v| v.as_str()) {
+            u.to_string()
+        } else {
+            let part1 = file_id / 1000;
+            let part2 = file_id % 1000;
+            format!("https://edge.forgecdn.net/files/{}/{}/{}", part1, part2, file_name)
+        };
+
+        let dest = dir.join(&file_name);
+        if !dest.exists() {
+            if let Ok(dl_resp) = self.client.get(&download_url).send().await {
+                if let Ok(bytes) = dl_resp.bytes().await {
+                    let _ = fs::write(&dest, bytes);
+                    info!("Successfully downloaded CurseForge dependency: {}", file_name);
+                }
+            }
+        }
+
         Ok(file_name)
     }
 }

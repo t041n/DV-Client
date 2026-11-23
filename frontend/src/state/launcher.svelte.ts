@@ -291,6 +291,8 @@ export class LauncherState {
     try {
       await invoke("select_active_instance", { id });
       await this.refreshInstances();
+      this.catalogMods = [];
+      await this.loadInstalledMods();
       this.fetchModsForSelectedProfile();
       this.showToast("Profile selected!");
     } catch (e) {
@@ -306,6 +308,9 @@ export class LauncherState {
         loader
       });
       await this.refreshInstances();
+      this.catalogMods = [];
+      await this.loadInstalledMods();
+      this.fetchModsForSelectedProfile();
       this.showToast(`Profile "${name}" created!`);
       this.showCreateInstanceModal = false;
     } catch (e) {
@@ -522,6 +527,7 @@ export class LauncherState {
           downloads: cf.download_count,
           categories: cf.categories || [],
           website_url: cf.website_url,
+          versions: cf.game_versions || [this.activeInstance?.mc_version || ""],
         }));
       } else {
         const catParam = this.modrinthCategory === "all" ? null : this.modrinthCategory;
@@ -545,6 +551,7 @@ export class LauncherState {
           icon_url: mr.icon_url,
           downloads: mr.downloads,
           categories: mr.categories || [],
+          versions: mr.versions || [this.activeInstance?.mc_version || ""],
         }));
       }
     } catch (e) {
@@ -626,6 +633,7 @@ export class LauncherState {
     if (!this.activeInstance) return;
     this.installingModId = mod.id;
     try {
+      this.showToast(`Installing ${mod.title} for MC ${this.activeInstance.mc_version}...`);
       let filename = "";
       if (mod.provider === "curseforge") {
         filename = await invoke("install_curseforge_mod", {
@@ -642,7 +650,7 @@ export class LauncherState {
           title: mod.title,
         });
       }
-      this.showToast(`Installed ${filename || mod.title}!`);
+      this.showToast(`Installed ${filename || mod.title} & dependencies!`);
       await this.loadInstalledMods();
     } catch (e) {
       this.showToast("Installation error: " + e);

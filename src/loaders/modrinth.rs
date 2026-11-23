@@ -37,6 +37,15 @@ pub struct ModrinthVersionFile {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ModrinthDependency {
+    pub version_id: Option<String>,
+    pub project_id: Option<String>,
+    pub file_name: Option<String>,
+    #[serde(default)]
+    pub dependency_type: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModrinthVersionItem {
     pub id: String,
     pub project_id: String,
@@ -45,6 +54,8 @@ pub struct ModrinthVersionItem {
     pub game_versions: Vec<String>,
     pub loaders: Vec<String>,
     pub files: Vec<ModrinthVersionFile>,
+    #[serde(default)]
+    pub dependencies: Vec<ModrinthDependency>,
 }
 
 #[derive(Clone)]
@@ -179,14 +190,23 @@ impl ModrinthClient {
                     })
                     .unwrap_or_default();
                 let versions = hit
-                    .get("versions")
+                    .get("game_versions")
                     .and_then(|c| c.as_array())
                     .map(|arr| {
                         arr.iter()
                             .filter_map(|x| x.as_str().map(|s| s.to_string()))
                             .collect()
                     })
-                    .unwrap_or_default();
+                    .unwrap_or_else(|| {
+                        hit.get("versions")
+                            .and_then(|c| c.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                                    .collect()
+                            })
+                            .unwrap_or_default()
+                    });
 
                 if !title.is_empty() {
                     results.push(ModrinthMod {
@@ -360,6 +380,64 @@ impl ModrinthClient {
             .error_for_status()?;
         let bytes = dl_resp.bytes().await?;
         fs::write(&dest, bytes)?;
+
+        // Auto-install required dependencies (e.g. malilib for litematica, fabric-api, etc.)
+        for dep in &selected_ver.dependencies {
+            if dep.dependency_type == "required" {
+                if let Some(ref dep_proj) = dep.project_id {
+                    let already_installed = if let Ok(entries) = fs::read_dir(dir) {
+                        entries.flatten().any(|e| {
+                            let fname = e.file_name().to_string_lossy().to_lowercase();
+                            let proj_clean = dep_proj.to_lowercase();
+                            (fname.contains(&proj_clean) || fname.starts_with(&proj_clean))
+                                && (fname.ends_with(".jar") || fname.ends_with(".disabled"))
+                        })
+                    } else {
+                        false
+                    };
+
+                    if !already_installed {
+                        info!(
+                            "Auto-installing required Modrinth dependency '{}' for '{}' on MC {}...",
+                            dep_proj, project_id_or_slug, mc_version
+                        );
+                        let mut dep_url = format!("{}/project/{}/version", MODRINTH_API_BASE, dep_proj);
+                        let mut dep_params = Vec::new();
+                        if l_clean != "vanilla" && !l_clean.is_empty() {
+                            dep_params.push(format!("loaders=[%22{}%22]", l_clean));
+                        }
+                        if !mc_version.is_empty() {
+                            dep_params.push(format!("game_versions=[%22{}%22]", mc_version));
+                        }
+                        if !dep_params.is_empty() {
+                            dep_url.push('?');
+                            dep_url.push_str(&dep_params.join("&"));
+                        }
+
+                        if let Ok(dep_resp) = self.client.get(&dep_url).send().await {
+                            if let Ok(dep_versions) = dep_resp.json::<Vec<ModrinthVersionItem>>().await {
+                                if let Some(dep_ver) = dep_versions.first() {
+                                    if let Some(dep_file) = dep_ver.files.iter().find(|f| f.primary).or_else(|| dep_ver.files.first()) {
+                                        let dep_dest = dir.join(&dep_file.filename);
+                                        if !dep_dest.exists() {
+                                            if let Ok(dl) = self.client.get(&dep_file.url).send().await {
+                                                if let Ok(b) = dl.bytes().await {
+                                                    let _ = fs::write(&dep_dest, b);
+                                                    info!(
+                                                        "Successfully installed required dependency: {}",
+                                                        dep_file.filename
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         Ok(file.filename.clone())
     }
