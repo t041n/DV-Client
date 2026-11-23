@@ -2,14 +2,18 @@ pub mod accounts;
 pub mod instances;
 pub mod lifecycle;
 pub mod mods;
+pub mod servers;
 pub mod settings;
 pub mod skins;
 pub mod system;
+pub mod worlds;
 
 pub use accounts::*;
 pub use instances::*;
 pub use lifecycle::*;
 pub use mods::*;
+pub use servers::*;
 pub use settings::*;
 pub use skins::*;
 pub use system::*;
+pub use worlds::*;

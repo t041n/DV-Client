@@ -26,6 +26,8 @@
     XCircle,
     X,
     ExternalLink,
+    Sun,
+    Palette,
   } from "lucide-svelte";
 
   const categories = MOD_CATEGORIES;
@@ -216,6 +218,57 @@
     </div>
   </div>
 
+  <!-- Content Type Filter (Mods / Shaders / Resource Packs) -->
+  <div class="flex items-center justify-between flex-wrap gap-3 pb-1">
+    <div class="flex items-center gap-1.5 p-1 bg-black/40 border border-white/8 rounded-2xl">
+      <button
+        onclick={() => {
+          launcher.contentTab = "mods";
+          launcher.loadInstalledMods();
+          launcher.fetchModsForSelectedProfile();
+        }}
+        class="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer {launcher.contentTab === 'mods' ? 'bg-red-500/20 text-red-300 border border-red-500/30 shadow-sm' : 'text-neutral-400 hover:text-white'}"
+      >
+        <Wrench class="w-3.5 h-3.5" />
+        <span>Mods</span>
+      </button>
+
+      <button
+        onclick={() => {
+          launcher.contentTab = "shaders";
+          launcher.loadInstalledContent();
+          launcher.fetchModsForSelectedProfile();
+        }}
+        class="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer {launcher.contentTab === 'shaders' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm' : 'text-neutral-400 hover:text-white'}"
+      >
+        <Sun class="w-3.5 h-3.5" />
+        <span>Shader Packs</span>
+      </button>
+
+      <button
+        onclick={() => {
+          launcher.contentTab = "resourcepacks";
+          launcher.loadInstalledContent();
+          launcher.fetchModsForSelectedProfile();
+        }}
+        class="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer {launcher.contentTab === 'resourcepacks' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm' : 'text-neutral-400 hover:text-white'}"
+      >
+        <Palette class="w-3.5 h-3.5" />
+        <span>Resource Packs</span>
+      </button>
+    </div>
+
+    {#if launcher.contentTab !== "mods"}
+      <button
+        onclick={() => launcher.openContentFolder()}
+        class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+      >
+        <FolderOpen class="w-3.5 h-3.5" />
+        <span>Open {launcher.contentTab === "shaders" ? "Shaderpacks" : "Resourcepacks"} Folder</span>
+      </button>
+    {/if}
+  </div>
+
   <!-- Vanilla Profile Notice (If active instance is Vanilla) -->
   {#if launcher.activeInstance && launcher.activeInstance.mod_loader.toLowerCase() === "vanilla"}
     <div
@@ -241,9 +294,68 @@
   {/if}
 
   <!-- ========================================================================= -->
-  <!-- PART 1: INSTALLED MODS VIEW                                               -->
+  <!-- PART 1: INSTALLED MODS & PACKS VIEW                                       -->
   <!-- ========================================================================= -->
   {#if launcher.modStudioSubTab === "installed"}
+    {#if launcher.contentTab !== "mods"}
+      <div class="space-y-4">
+        {#if launcher.isLoadingContent}
+          <div class="py-16 flex flex-col items-center justify-center gap-2.5 text-neutral-400">
+            <RefreshCw class="w-6 h-6 animate-spin text-amber-400" />
+            <span class="text-xs font-semibold">Scanning {launcher.contentTab}...</span>
+          </div>
+        {:else if launcher.installedContent.length === 0}
+          <div class="p-8 rounded-2xl bg-white/[0.02] border border-white/8 text-center space-y-3">
+            <div class="w-12 h-12 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-neutral-400">
+              {#if launcher.contentTab === "shaders"}
+                <Sun class="w-6 h-6 text-amber-400" />
+              {:else}
+                <Palette class="w-6 h-6 text-cyan-400" />
+              {/if}
+            </div>
+            <h4 class="text-sm font-bold text-white">No {launcher.contentTab === "shaders" ? "Shader Packs" : "Resource Packs"} Installed</h4>
+            <p class="text-xs text-neutral-400 max-w-md mx-auto">
+              Transform your visual experience! Switch to the <strong>Catalog</strong> tab to search and install packs with one click.
+            </p>
+            <button
+              onclick={() => (launcher.modStudioSubTab = "catalog")}
+              class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all cursor-pointer"
+            >
+              Browse {launcher.contentTab === "shaders" ? "Shader Packs" : "Resource Packs"}
+            </button>
+          </div>
+        {:else}
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {#each launcher.installedContent as item}
+              <div class="p-4 rounded-xl bg-[#0e1017]/80 border border-white/8 hover:border-white/16 transition-all flex flex-col justify-between group">
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded {launcher.contentTab === 'shaders' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/25' : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/25'}">
+                      {launcher.contentTab === "shaders" ? "Shader" : "Resource"}
+                    </span>
+                    <span class="text-[11px] font-mono text-neutral-400">
+                      {item.size_bytes > 0 ? (item.size_bytes / (1024 * 1024)).toFixed(1) + " MB" : "Folder"}
+                    </span>
+                  </div>
+                  <h4 class="text-sm font-bold text-white truncate" title={item.filename}>{item.name}</h4>
+                  <p class="text-[11px] font-mono text-neutral-400 truncate">{item.filename}</p>
+                </div>
+
+                <div class="mt-3 pt-2.5 border-t border-white/5 flex justify-end">
+                  <button
+                    onclick={() => launcher.deleteInstalledContent(item.filename)}
+                    title="Delete pack"
+                    class="p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-neutral-400 hover:text-rose-300 border border-white/10 transition-all cursor-pointer"
+                  >
+                    <Trash2 class="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {:else}
     <div class="space-y-4">
       <!-- Controls Toolbar -->
       <div
@@ -492,6 +604,7 @@
         </div>
       {/if}
     </div>
+    {/if}
   {/if}
 
   <!-- ========================================================================= -->

@@ -19,6 +19,12 @@ import type {
   PlayerSkinPayload,
   UpdateCheckResult,
   CrashAnalysis,
+  FavoriteServer,
+  ServerPingResult,
+  InstalledContentItem,
+  WorldSave,
+  GameScreenshot,
+  UpdateProgressPayload,
 } from "../types";
 
 export interface ModrinthSearchResult {
@@ -124,6 +130,26 @@ export class LauncherState {
   isInstallingSmpSkinMod = $state(false);
   isForceSmpSkinActive = $state(true);
 
+  // Favorite Multiplayer Servers & Quick Connect
+  favoriteServers = $state<FavoriteServer[]>([]);
+  selectedServerToJoin = $state<string | null>(null);
+  isPingingServers = $state(false);
+
+  // Content Studio (Mods, Shaders, Resource Packs)
+  contentTab = $state<"mods" | "shaders" | "resourcepacks">("mods");
+  installedContent = $state<InstalledContentItem[]>([]);
+  isLoadingContent = $state(false);
+
+  // World Saves & In-Game Screenshots
+  worlds = $state<WorldSave[]>([]);
+  isLoadingWorlds = $state(false);
+  screenshots = $state<GameScreenshot[]>([]);
+  isLoadingScreenshots = $state(false);
+
+  // In-App Auto-Updater
+  updateDownloadProgress = $state<UpdateProgressPayload | null>(null);
+  isDownloadingUpdate = $state(false);
+
   // Notifications toast
   toastMessage = $state("");
   toastTimeout: any = null;
@@ -150,6 +176,7 @@ export class LauncherState {
     await this.loadSettings();
     await this.loadMinecraftVersions();
     await this.loadPlayerSkin();
+    await this.loadFavoriteServers();
 
     // Check for launcher updates in background
     this.checkForUpdates(false).catch(() => {});
@@ -503,8 +530,12 @@ export class LauncherState {
     this.isSearchingModrinth = true;
     try {
       const isVanilla = this.activeInstance.mod_loader.toLowerCase() === "vanilla";
-      const loaderParam = isVanilla ? null : this.activeInstance.mod_loader.toLowerCase();
+      const isContentMod = this.contentTab === "mods";
+      const loaderParam = (isVanilla || !isContentMod) ? null : this.activeInstance.mod_loader.toLowerCase();
       const q = this.modrinthQuery.trim();
+
+      const pType = this.contentTab === "shaders" ? "shader" : this.contentTab === "resourcepacks" ? "resourcepack" : "mod";
+      const cfClassId = this.contentTab === "shaders" ? 6552 : this.contentTab === "resourcepacks" ? 12 : 6;
 
       if (this.modProvider === "curseforge") {
         const results: any[] = await invoke("search_curseforge", {
@@ -514,6 +545,7 @@ export class LauncherState {
           categoryId: null,
           sortBy: this.modrinthSortBy,
           limit: 36,
+          classId: cfClassId,
         });
 
         this.catalogMods = (results || []).map(cf => ({
@@ -538,6 +570,7 @@ export class LauncherState {
           category: catParam,
           sortBy: this.modrinthSortBy,
           limit: 36,
+          projectType: pType,
         });
 
         this.modrinthSearchResults = results || [];
@@ -632,6 +665,7 @@ export class LauncherState {
   async installCatalogMod(mod: CatalogModItem) {
     if (!this.activeInstance) return;
     this.installingModId = mod.id;
+    const cType = this.contentTab === "shaders" ? "shader" : this.contentTab === "resourcepacks" ? "resourcepack" : "mod";
     try {
       this.showToast(`Installing ${mod.title} for MC ${this.activeInstance.mc_version}...`);
       let filename = "";
@@ -641,6 +675,7 @@ export class LauncherState {
           modId: parseInt(mod.id, 10),
           slug: mod.slug,
           title: mod.title,
+          contentType: cType,
         });
       } else {
         filename = await invoke("install_modrinth_mod", {
@@ -648,10 +683,15 @@ export class LauncherState {
           projectId: mod.id,
           slug: mod.slug,
           title: mod.title,
+          contentType: cType,
         });
       }
-      this.showToast(`Installed ${filename || mod.title} & dependencies!`);
-      await this.loadInstalledMods();
+      this.showToast(`Installed ${filename || mod.title}!`);
+      if (cType === "mod") {
+        await this.loadInstalledMods();
+      } else {
+        await this.loadInstalledContent();
+      }
     } catch (e) {
       this.showToast("Installation error: " + e);
     } finally {
@@ -1096,7 +1136,7 @@ export class LauncherState {
   }
 
   // --- Launch & Terminate ---
-  async launchOrStop() {
+  async launchOrStop(directServer?: string) {
     if (this.gameStatus === "running") {
       try {
         await invoke("stop_game");
@@ -1127,7 +1167,11 @@ export class LauncherState {
     this.isCrashDismissed = false;
 
     try {
-      await invoke("launch_game", { instanceId: this.activeInstance.id });
+      const serverToJoin = directServer || this.selectedServerToJoin;
+      await invoke("launch_game", {
+        instanceId: this.activeInstance.id,
+        directConnectServer: serverToJoin || null,
+      });
     } catch (e: any) {
       this.gameStatus = "idle";
       this.hasManualCrash = false;
@@ -1142,6 +1186,57 @@ export class LauncherState {
           this.hasManualCrash = true;
         }
       } catch (_) {}
+    }
+  }
+
+  // --- Favorite Multiplayer Servers ---
+  async loadFavoriteServers() {
+    try {
+      const list = await TauriService.getFavoriteServers();
+      this.favoriteServers = list;
+      this.pingAllServers();
+    } catch (e) {
+      console.warn("Failed to load favorite servers:", e);
+    }
+  }
+
+  async pingAllServers() {
+    if (this.isPingingServers) return;
+    this.isPingingServers = true;
+    try {
+      const updated = await Promise.all(
+        this.favoriteServers.map(async (server) => {
+          try {
+            const ping = await TauriService.pingMinecraftServer(server.host, server.port);
+            return { ...server, ping, isPinging: false };
+          } catch (_) {
+            return { ...server, ping: null, isPinging: false };
+          }
+        })
+      );
+      this.favoriteServers = updated;
+    } finally {
+      this.isPingingServers = false;
+    }
+  }
+
+  async saveFavoriteServer(name: string, host: string, port?: number, id?: string) {
+    try {
+      const saved = await TauriService.saveFavoriteServer(name, host, port, id);
+      await this.loadFavoriteServers();
+      this.showToast(`Server "${saved.name}" saved!`);
+    } catch (e) {
+      this.showToast("Failed to save server: " + e);
+    }
+  }
+
+  async deleteFavoriteServer(id: string) {
+    try {
+      await TauriService.deleteFavoriteServer(id);
+      await this.loadFavoriteServers();
+      this.showToast("Server removed");
+    } catch (e) {
+      this.showToast("Failed to remove server: " + e);
     }
   }
 
@@ -1303,6 +1398,138 @@ export class LauncherState {
       await TauriService.openUrl(url);
     } catch (e) {
       this.showToast("Failed to open update URL: " + e);
+    }
+  }
+
+  // --- Content Studio (Shaders, Resource Packs, Datapacks) ---
+  async loadInstalledContent() {
+    if (!this.activeInstance) return;
+    this.isLoadingContent = true;
+    try {
+      const type = this.contentTab === "shaders" ? "shader" : this.contentTab === "resourcepacks" ? "resourcepack" : "mod";
+      if (type === "mod") {
+        await this.loadInstalledMods();
+      } else {
+        this.installedContent = await TauriService.getInstalledContent(this.activeInstance.id, type);
+      }
+    } catch (e) {
+      console.warn("Failed to load installed content:", e);
+    } finally {
+      this.isLoadingContent = false;
+    }
+  }
+
+  async deleteInstalledContent(filename: string) {
+    if (!this.activeInstance) return;
+    const type = this.contentTab === "shaders" ? "shader" : this.contentTab === "resourcepacks" ? "resourcepack" : "mod";
+    try {
+      await TauriService.deleteInstalledContent(this.activeInstance.id, type, filename);
+      this.showToast(`Deleted ${filename}`);
+      await this.loadInstalledContent();
+    } catch (e) {
+      this.showToast("Failed to delete: " + e);
+    }
+  }
+
+  async openContentFolder() {
+    if (!this.activeInstance) return;
+    const type = this.contentTab === "shaders" ? "shader" : this.contentTab === "resourcepacks" ? "resourcepack" : "mod";
+    try {
+      await TauriService.openContentFolder(this.activeInstance.id, type);
+    } catch (e) {
+      this.showToast("Failed to open folder: " + e);
+    }
+  }
+
+  // --- World Saves Manager ---
+  async loadWorlds() {
+    if (!this.activeInstance) return;
+    this.isLoadingWorlds = true;
+    try {
+      this.worlds = await TauriService.getInstanceWorlds(this.activeInstance.id);
+    } catch (e) {
+      console.warn("Failed to load worlds:", e);
+    } finally {
+      this.isLoadingWorlds = false;
+    }
+  }
+
+  async backupWorld(worldFolder: string) {
+    if (!this.activeInstance) return;
+    const target = this.worlds.find((w) => w.folder_name === worldFolder);
+    if (target) target.isBackingUp = true;
+    try {
+      await TauriService.backupWorld(this.activeInstance.id, worldFolder);
+      this.showToast(`World backup created in backups folder!`);
+    } catch (e) {
+      this.showToast("Backup failed: " + e);
+    } finally {
+      if (target) target.isBackingUp = false;
+    }
+  }
+
+  async deleteWorld(worldFolder: string) {
+    if (!this.activeInstance) return;
+    try {
+      await TauriService.deleteWorld(this.activeInstance.id, worldFolder);
+      this.showToast(`World deleted`);
+      await this.loadWorlds();
+    } catch (e) {
+      this.showToast("Failed to delete world: " + e);
+    }
+  }
+
+  // --- Screenshot Gallery ---
+  async loadScreenshots() {
+    if (!this.activeInstance) return;
+    this.isLoadingScreenshots = true;
+    try {
+      this.screenshots = await TauriService.getInstanceScreenshots(this.activeInstance.id);
+    } catch (e) {
+      console.warn("Failed to load screenshots:", e);
+    } finally {
+      this.isLoadingScreenshots = false;
+    }
+  }
+
+  async deleteScreenshot(filename: string) {
+    if (!this.activeInstance) return;
+    try {
+      await TauriService.deleteScreenshot(this.activeInstance.id, filename);
+      this.showToast(`Screenshot removed`);
+      await this.loadScreenshots();
+    } catch (e) {
+      this.showToast("Failed to delete screenshot: " + e);
+    }
+  }
+
+  // --- In-App Auto-Updater ---
+  async downloadAndInstallUpdate() {
+    if (!this.updateInfo?.download_url) {
+      this.openReleaseUrl();
+      return;
+    }
+    this.isDownloadingUpdate = true;
+    this.updateDownloadProgress = {
+      downloaded_bytes: 0,
+      total_bytes: 0,
+      percent: 0,
+      status: "Initiating download...",
+    };
+
+    let unlisten: (() => void) | null = null;
+    try {
+      unlisten = await listen<UpdateProgressPayload>("update-download-progress", (event) => {
+        this.updateDownloadProgress = event.payload;
+      });
+
+      await TauriService.downloadAndInstallUpdate(this.updateInfo.download_url);
+      this.showToast("Update downloaded and installer initiated!");
+    } catch (e) {
+      this.showToast("Update failed: " + e);
+    } finally {
+      if (unlisten) unlisten();
+      this.isDownloadingUpdate = false;
     }
   }
 }

@@ -87,10 +87,10 @@ impl ModrinthClient {
         mc_version: Option<&str>,
         loader: Option<&str>,
     ) -> Result<Vec<ModrinthMod>, LoaderError> {
-        self.search_mods_advanced(query, mc_version, loader, None, None, 40).await
+        self.search_mods_advanced(query, mc_version, loader, None, None, 40, None).await
     }
 
-    /// Advanced Modrinth search with category filtering, sorting index, and result limits.
+    /// Advanced Modrinth search with category filtering, sorting index, project type, and result limits.
     pub async fn search_mods_advanced(
         &self,
         query: &str,
@@ -99,6 +99,7 @@ impl ModrinthClient {
         category: Option<&str>,
         sort_by: Option<&str>,
         limit: u32,
+        project_type: Option<&str>,
     ) -> Result<Vec<ModrinthMod>, LoaderError> {
         let trimmed_query = query.trim();
         let sort = sort_by.unwrap_or(if trimmed_query.is_empty() { "downloads" } else { "relevance" });
@@ -110,12 +111,15 @@ impl ModrinthClient {
             limit.clamp(1, 100)
         );
 
-        // Build facets filter: project_type:mod
-        let mut facets = vec![r#"["project_type:mod"]"#.to_string()];
-        if let Some(loader_name) = loader {
-            let l_clean = loader_name.to_lowercase();
-            if l_clean != "vanilla" && !l_clean.is_empty() {
-                facets.push(format!(r#"["categories:{}"]"#, l_clean));
+        // Build facets filter: project_type (mod, shader, resourcepack, datapack)
+        let ptype = project_type.unwrap_or("mod");
+        let mut facets = vec![format!(r#"["project_type:{}"]"#, ptype)];
+        if ptype == "mod" {
+            if let Some(loader_name) = loader {
+                let l_clean = loader_name.to_lowercase();
+                if l_clean != "vanilla" && !l_clean.is_empty() {
+                    facets.push(format!(r#"["categories:{}"]"#, l_clean));
+                }
             }
         }
         if let Some(ver) = mc_version {
@@ -335,7 +339,7 @@ impl ModrinthClient {
 
         let l_clean = loader.to_lowercase();
         let mut query_params = Vec::new();
-        if l_clean != "vanilla" && !l_clean.is_empty() {
+        if l_clean != "vanilla" && l_clean != "shader" && l_clean != "resourcepack" && l_clean != "datapack" && !l_clean.is_empty() {
             query_params.push(format!("loaders=[%22{}%22]", l_clean));
         }
         if !mc_version.is_empty() {

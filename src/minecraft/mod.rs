@@ -8,6 +8,7 @@ pub mod manifest;
 pub mod metadata;
 pub mod pipeline;
 pub mod process;
+pub mod server_ping;
 
 pub use downloads::{AsyncDownloader, DownloadError, DownloadProgress, DownloadTask};
 pub use error_detector::{CrashAnalysis, ErrorDetector};
@@ -20,3 +21,4 @@ pub use manifest::{
 pub use metadata::{MetaError, PistonMetaClient};
 pub use pipeline::{InstallationPipeline, PipelineError};
 pub use process::{ProcessError, ProcessState, ProcessSupervisor};
+pub use server_ping::{ping_server, ServerPingResult};

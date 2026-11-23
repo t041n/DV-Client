@@ -135,3 +135,59 @@ export interface UpdateCheckResult {
   html_url: string;
   download_url: string | null;
 }
+
+export interface ServerPingResult {
+  host: string;
+  port: number;
+  online: boolean;
+  latency_ms: number;
+  version_name: string;
+  protocol_version: number;
+  players_online: number;
+  players_max: number;
+  motd: string;
+  favicon: string | null;
+}
+
+export interface FavoriteServer {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  is_default: boolean;
+  ping?: ServerPingResult | null;
+  isPinging?: boolean;
+}
+
+export interface InstalledContentItem {
+  filename: string;
+  name: string;
+  size_bytes: number;
+  modified: number | null;
+  is_folder: boolean;
+  content_type: string;
+}
+
+export interface WorldSave {
+  folder_name: string;
+  name: string;
+  last_played_timestamp: number | null;
+  size_bytes: number;
+  icon_base64: string | null;
+  isBackingUp?: boolean;
+}
+
+export interface GameScreenshot {
+  filename: string;
+  path: string;
+  size_bytes: number;
+  modified_timestamp: number | null;
+  thumbnail_base64: string | null;
+}
+
+export interface UpdateProgressPayload {
+  downloaded_bytes: number;
+  total_bytes: number;
+  percent: number;
+  status: string;
+}

@@ -1,6 +1,9 @@
 use crate::state::LauncherInfo;
 use dv_launcher::branding;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
+use tokio::io::AsyncWriteExt;
 use tracing::info;
 
 pub const GITHUB_RELEASES_API: &str =
@@ -162,4 +165,112 @@ pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
         html_url: release.html_url,
         download_url,
     })
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub struct UpdateProgressPayload {
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub percent: f32,
+    pub status: String,
+}
+
+#[tauri::command]
+pub async fn download_and_install_update(
+    download_url: String,
+    app_handle: AppHandle,
+) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("dv-launcher-updater")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let res = client
+        .get(&download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to initiate download: {}", e))?;
+
+    if !res.status().is_success() {
+        return Err(format!("Server returned HTTP {}", res.status()));
+    }
+
+    let total_bytes = res.content_length().unwrap_or(0);
+    let temp_dir = std::env::temp_dir();
+
+    let fname = download_url
+        .split('/')
+        .last()
+        .and_then(|f| f.split('?').next())
+        .unwrap_or("dv-launcher-update.exe");
+
+    let dest_path = temp_dir.join(fname);
+    let mut file = tokio::fs::File::create(&dest_path)
+        .await
+        .map_err(|e| format!("Failed to create destination file: {}", e))?;
+
+    let mut stream = res.bytes_stream();
+    let mut downloaded: u64 = 0;
+
+    let _ = app_handle.emit(
+        "update-download-progress",
+        UpdateProgressPayload {
+            downloaded_bytes: 0,
+            total_bytes,
+            percent: 0.0,
+            status: "Starting download...".to_string(),
+        },
+    );
+
+    while let Some(chunk_result) = stream.next().await {
+        let chunk = chunk_result.map_err(|e| format!("Error downloading chunk: {}", e))?;
+        file.write_all(&chunk)
+            .await
+            .map_err(|e| format!("Error writing chunk: {}", e))?;
+        downloaded += chunk.len() as u64;
+
+        let pct = if total_bytes > 0 {
+            (downloaded as f32 / total_bytes as f32) * 100.0
+        } else {
+            0.0
+        };
+
+        let _ = app_handle.emit(
+            "update-download-progress",
+            UpdateProgressPayload {
+                downloaded_bytes: downloaded,
+                total_bytes,
+                percent: pct,
+                status: format!("Downloading update... {:.1}%", pct),
+            },
+        );
+    }
+
+    file.flush().await.map_err(|e| e.to_string())?;
+
+    let _ = app_handle.emit(
+        "update-download-progress",
+        UpdateProgressPayload {
+            downloaded_bytes: downloaded,
+            total_bytes,
+            percent: 100.0,
+            status: "Download complete! Opening installer...".to_string(),
+        },
+    );
+
+    #[cfg(target_os = "windows")]
+    {
+        if fname.ends_with(".exe") || fname.ends_with(".msi") {
+            let _ = std::process::Command::new(&dest_path).spawn();
+        } else {
+            let _ = dv_launcher::utils::open_path_in_explorer(&dest_path);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = dv_launcher::utils::open_path_in_explorer(&dest_path);
+    }
+
+    Ok(dest_path.to_string_lossy().to_string())
 }

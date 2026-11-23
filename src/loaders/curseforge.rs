@@ -16,6 +16,8 @@ use tracing::{info, warn};
 pub const CURSEFORGE_API_BASE: &str = "https://api.curseforge.com/v1";
 pub const CURSEFORGE_MINECRAFT_GAME_ID: u32 = 432;
 pub const CURSEFORGE_MODS_CLASS_ID: u32 = 6;
+pub const CURSEFORGE_RESOURCEPACKS_CLASS_ID: u32 = 12;
+pub const CURSEFORGE_SHADERS_CLASS_ID: u32 = 6552;
 pub const CURSEFORGE_API_KEY: &str = "$2a$10$bL4bIL5pUWqfcO7KQtnMReakwtfHbNKh6v1uTpKlzhwoueEJQnPnm";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -82,7 +84,7 @@ impl CurseForgeClient {
         }
     }
 
-    /// Search mods on CurseForge with filtering and sorting.
+    /// Search mods, shaders, and resource packs on CurseForge with filtering and sorting.
     pub async fn search_mods(
         &self,
         query: &str,
@@ -91,9 +93,15 @@ impl CurseForgeClient {
         category_id: Option<u32>,
         sort_by: Option<&str>,
         limit: u32,
+        class_id: Option<u32>,
     ) -> Result<Vec<CurseForgeMod>, LoaderError> {
         let trimmed_query = query.trim();
-        let loader_type = Self::map_loader_type(loader);
+        let target_class_id = class_id.unwrap_or(CURSEFORGE_MODS_CLASS_ID);
+        let loader_type = if target_class_id == CURSEFORGE_MODS_CLASS_ID {
+            Self::map_loader_type(loader)
+        } else {
+            0
+        };
 
         // SortField: 1=Featured, 2=Popularity, 3=LastUpdated, 4=Name, 6=TotalDownloads
         let sort_field = match sort_by.unwrap_or("downloads") {
@@ -108,7 +116,7 @@ impl CurseForgeClient {
             "{}/mods/search?gameId={}&classId={}&sortField={}&sortOrder=desc&pageSize={}",
             CURSEFORGE_API_BASE,
             CURSEFORGE_MINECRAFT_GAME_ID,
-            CURSEFORGE_MODS_CLASS_ID,
+            target_class_id,
             sort_field,
             limit.clamp(1, 50)
         );

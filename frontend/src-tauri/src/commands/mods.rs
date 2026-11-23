@@ -49,6 +49,7 @@ pub async fn search_modrinth(
     category: Option<String>,
     sort_by: Option<String>,
     limit: Option<u32>,
+    project_type: Option<String>,
 ) -> Result<Vec<ModrinthMod>, String> {
     let client = ModrinthClient::new();
     let q = query.unwrap_or_default();
@@ -61,6 +62,7 @@ pub async fn search_modrinth(
             category.as_deref(),
             sort_by.as_deref(),
             lim,
+            project_type.as_deref(),
         )
         .await
         .map_err(|e| e.to_string())
@@ -102,6 +104,7 @@ pub async fn install_modrinth_mod(
     project_id: String,
     slug: Option<String>,
     title: Option<String>,
+    content_type: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let mgr = state.instance_mgr.lock().await;
@@ -110,20 +113,30 @@ pub async fn install_modrinth_mod(
         .get(&instance_id)
         .ok_or_else(|| "Instance not found".to_string())?;
 
-    let mods_dir = inst.game_dir(&mgr.instances_dir).join("mods");
+    let c_type = content_type.as_deref().unwrap_or("mod");
+    let target_dir = match c_type {
+        "shader" => inst.game_dir(&mgr.instances_dir).join("shaderpacks"),
+        "resourcepack" => inst.game_dir(&mgr.instances_dir).join("resourcepacks"),
+        "datapack" => inst.game_dir(&mgr.instances_dir).join("datapacks"),
+        _ => inst.game_dir(&mgr.instances_dir).join("mods"),
+    };
     let mc_ver = inst.minecraft_version.clone();
-    let loader = inst.mod_loader.clone();
+    let loader = if c_type == "mod" {
+        inst.mod_loader.clone()
+    } else {
+        c_type.to_string()
+    };
 
     let client = ModrinthClient::new();
     let file_name = client
-        .install_mod(&project_id, &mc_ver, &loader, &mods_dir)
+        .install_mod(&project_id, &mc_ver, &loader, &target_dir)
         .await
         .map_err(|e| e.to_string())?;
 
     let eff_slug = slug.unwrap_or_else(|| project_id.clone());
     let eff_title = title.unwrap_or_else(|| eff_slug.clone());
     dv_launcher::instances::record_installed_mod(
-        &mods_dir,
+        &target_dir,
         &file_name,
         &project_id,
         &eff_slug,
@@ -142,6 +155,7 @@ pub async fn search_curseforge(
     category_id: Option<u32>,
     sort_by: Option<String>,
     limit: Option<u32>,
+    class_id: Option<u32>,
 ) -> Result<Vec<CurseForgeMod>, String> {
     let client = CurseForgeClient::new();
     let q = query.unwrap_or_default();
@@ -154,6 +168,7 @@ pub async fn search_curseforge(
             category_id,
             sort_by.as_deref(),
             lim,
+            class_id,
         )
         .await
         .map_err(|e| e.to_string())
@@ -165,6 +180,7 @@ pub async fn install_curseforge_mod(
     mod_id: u64,
     slug: Option<String>,
     title: Option<String>,
+    content_type: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let mgr = state.instance_mgr.lock().await;
@@ -173,13 +189,23 @@ pub async fn install_curseforge_mod(
         .get(&instance_id)
         .ok_or_else(|| "Instance not found".to_string())?;
 
-    let mods_dir = inst.game_dir(&mgr.instances_dir).join("mods");
+    let c_type = content_type.as_deref().unwrap_or("mod");
+    let target_dir = match c_type {
+        "shader" => inst.game_dir(&mgr.instances_dir).join("shaderpacks"),
+        "resourcepack" => inst.game_dir(&mgr.instances_dir).join("resourcepacks"),
+        "datapack" => inst.game_dir(&mgr.instances_dir).join("datapacks"),
+        _ => inst.game_dir(&mgr.instances_dir).join("mods"),
+    };
     let mc_ver = inst.minecraft_version.clone();
-    let loader = inst.mod_loader.clone();
+    let loader = if c_type == "mod" {
+        inst.mod_loader.clone()
+    } else {
+        c_type.to_string()
+    };
 
     let client = CurseForgeClient::new();
     let file_name = client
-        .install_mod(mod_id, &mc_ver, &loader, &mods_dir)
+        .install_mod(mod_id, &mc_ver, &loader, &target_dir)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -187,7 +213,7 @@ pub async fn install_curseforge_mod(
     let eff_slug = slug.unwrap_or_else(|| project_id_str.clone());
     let eff_title = title.unwrap_or_else(|| eff_slug.clone());
     dv_launcher::instances::record_installed_mod(
-        &mods_dir,
+        &target_dir,
         &file_name,
         &project_id_str,
         &eff_slug,
@@ -370,4 +396,125 @@ pub async fn uninstall_modrinth_mod(
     }
 
     Ok(removed)
+}
+
+#[derive(serde::Serialize, Clone, Debug)]
+pub struct InstalledContentItem {
+    pub filename: String,
+    pub name: String,
+    pub size_bytes: u64,
+    pub modified: Option<u64>,
+    pub is_folder: bool,
+    pub content_type: String,
+}
+
+#[tauri::command]
+pub async fn get_installed_content(
+    instance_id: String,
+    content_type: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<InstalledContentItem>, String> {
+    let mgr = state.instance_mgr.lock().await;
+    let inst = mgr
+        .instances
+        .get(&instance_id)
+        .ok_or_else(|| "Instance not found".to_string())?;
+
+    let target_dir = match content_type.as_str() {
+        "shader" => inst.game_dir(&mgr.instances_dir).join("shaderpacks"),
+        "resourcepack" => inst.game_dir(&mgr.instances_dir).join("resourcepacks"),
+        "datapack" => inst.game_dir(&mgr.instances_dir).join("datapacks"),
+        _ => inst.game_dir(&mgr.instances_dir).join("mods"),
+    };
+
+    if !target_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let entries = match std::fs::read_dir(&target_dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(Vec::new()),
+    };
+
+    let mut items = Vec::new();
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        let fname = entry.file_name().to_string_lossy().to_string();
+        if fname.starts_with('.') || fname == "dv_mods_meta.json" {
+            continue;
+        }
+        let is_dir = path.is_dir();
+        let meta = entry.metadata().ok();
+        let size = if is_dir { 0 } else { meta.as_ref().map(|m| m.len()).unwrap_or(0) };
+        let modified = meta.and_then(|m| m.modified().ok()).and_then(|t| {
+            t.duration_since(std::time::UNIX_EPOCH).ok().map(|d| d.as_secs())
+        });
+        let display_name = fname.trim_end_matches(".zip").trim_end_matches(".jar").replace('_', " ");
+        items.push(InstalledContentItem {
+            filename: fname,
+            name: display_name,
+            size_bytes: size,
+            modified,
+            is_folder: is_dir,
+            content_type: content_type.clone(),
+        });
+    }
+
+    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(items)
+}
+
+#[tauri::command]
+pub async fn delete_installed_content(
+    instance_id: String,
+    content_type: String,
+    filename: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mgr = state.instance_mgr.lock().await;
+    let inst = mgr
+        .instances
+        .get(&instance_id)
+        .ok_or_else(|| "Instance not found".to_string())?;
+
+    let target_dir = match content_type.as_str() {
+        "shader" => inst.game_dir(&mgr.instances_dir).join("shaderpacks"),
+        "resourcepack" => inst.game_dir(&mgr.instances_dir).join("resourcepacks"),
+        "datapack" => inst.game_dir(&mgr.instances_dir).join("datapacks"),
+        _ => inst.game_dir(&mgr.instances_dir).join("mods"),
+    };
+
+    let target_path = target_dir.join(&filename);
+    if target_path.exists() {
+        if target_path.is_dir() {
+            let _ = std::fs::remove_dir_all(&target_path);
+        } else {
+            let _ = std::fs::remove_file(&target_path);
+        }
+        dv_launcher::instances::unrecord_installed_mod(&target_dir, &filename);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_content_folder(
+    instance_id: String,
+    content_type: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mgr = state.instance_mgr.lock().await;
+    let inst = mgr
+        .instances
+        .get(&instance_id)
+        .ok_or_else(|| "Instance not found".to_string())?;
+
+    let target_dir = match content_type.as_str() {
+        "shader" => inst.game_dir(&mgr.instances_dir).join("shaderpacks"),
+        "resourcepack" => inst.game_dir(&mgr.instances_dir).join("resourcepacks"),
+        "datapack" => inst.game_dir(&mgr.instances_dir).join("datapacks"),
+        _ => inst.game_dir(&mgr.instances_dir).join("mods"),
+    };
+
+    let _ = std::fs::create_dir_all(&target_dir);
+    dv_launcher::utils::open_path_in_explorer(&target_dir).map_err(|e| e.to_string())
 }

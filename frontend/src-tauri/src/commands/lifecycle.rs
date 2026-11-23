@@ -14,6 +14,7 @@ use tracing::info;
 #[tauri::command]
 pub async fn launch_game(
     instance_id: Option<String>,
+    direct_connect_server: Option<String>,
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
@@ -292,7 +293,24 @@ pub async fn launch_game(
         mod_loader: inst.mod_loader.clone(),
         extra_classpath: loader_info.extra_libraries,
         main_class_override: loader_info.main_class,
-        extra_game_args: loader_info.extra_game_args,
+        extra_game_args: {
+            let mut args = loader_info.extra_game_args;
+            if let Some(ref server_addr) = direct_connect_server.filter(|s| !s.trim().is_empty()) {
+                let trimmed = server_addr.trim();
+                let (host, port) = if let Some((h, p)) = trimmed.split_once(':') {
+                    (h, p.parse::<u16>().unwrap_or(25565))
+                } else {
+                    (trimmed, 25565)
+                };
+                args.push("--server".to_string());
+                args.push(host.to_string());
+                if port != 25565 {
+                    args.push("--port".to_string());
+                    args.push(port.to_string());
+                }
+            }
+            args
+        },
     };
 
     let command_args = LaunchArgumentBuilder::build_command_args(&launch_ctx);

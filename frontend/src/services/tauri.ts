@@ -15,6 +15,8 @@ import type {
   GpuDevice,
   PlayerSkinPayload,
   UpdateCheckResult,
+  ServerPingResult,
+  FavoriteServer,
 } from "../types";
 
 export const TauriService = {
@@ -97,16 +99,23 @@ export const TauriService = {
   searchModrinth(params: {
     query: string | null;
     loader: string | null;
-    gameVersion: string;
-    category: string | null;
-    sortBy: string;
-    limit: number;
+    gameVersion?: string | null;
+    category?: string | null;
+    sortBy?: string | null;
+    limit?: number | null;
+    projectType?: string | null;
   }): Promise<any[]> {
     return invoke("search_modrinth", params);
   },
 
-  installModrinthMod(instanceId: string, projectId: string): Promise<string> {
-    return invoke("install_modrinth_mod", { instanceId, projectId });
+  installModrinthMod(
+    instanceId: string,
+    projectId: string,
+    slug?: string | null,
+    title?: string | null,
+    contentType?: string | null
+  ): Promise<string> {
+    return invoke("install_modrinth_mod", { instanceId, projectId, slug: slug || null, title: title || null, contentType: contentType || null });
   },
 
   uninstallModrinthMod(instanceId: string, slug: string): Promise<void> {
@@ -116,20 +125,39 @@ export const TauriService = {
   searchCurseforge(params: {
     query: string | null;
     loader: string | null;
-    gameVersion: string;
-    categoryId: number | null;
-    sortBy: string;
-    limit: number;
+    gameVersion?: string | null;
+    categoryId?: number | null;
+    sortBy?: string | null;
+    limit?: number | null;
+    classId?: number | null;
   }): Promise<any[]> {
     return invoke("search_curseforge", params);
   },
 
-  installCurseforgeMod(instanceId: string, modId: number): Promise<string> {
-    return invoke("install_curseforge_mod", { instanceId, modId });
+  installCurseforgeMod(
+    instanceId: string,
+    modId: number,
+    slug?: string | null,
+    title?: string | null,
+    contentType?: string | null
+  ): Promise<string> {
+    return invoke("install_curseforge_mod", { instanceId, modId, slug: slug || null, title: title || null, contentType: contentType || null });
   },
 
   openModsFolder(instanceId?: string | null): Promise<void> {
     return invoke("open_mods_folder", { instanceId: instanceId || null });
+  },
+
+  getInstalledContent(instanceId: string, contentType: string): Promise<any[]> {
+    return invoke("get_installed_content", { instanceId, contentType });
+  },
+
+  deleteInstalledContent(instanceId: string, contentType: string, filename: string): Promise<void> {
+    return invoke("delete_installed_content", { instanceId, contentType, filename });
+  },
+
+  openContentFolder(instanceId: string, contentType: string): Promise<void> {
+    return invoke("open_content_folder", { instanceId, contentType });
   },
 
   // --- Skins & Capes ---
@@ -174,8 +202,8 @@ export const TauriService = {
   },
 
   // --- Game Lifecycle ---
-  launchGame(instanceId: string): Promise<void> {
-    return invoke("launch_game", { instanceId });
+  launchGame(instanceId: string, directConnectServer?: string): Promise<void> {
+    return invoke("launch_game", { instanceId, directConnectServer: directConnectServer || null });
   },
 
   stopGame(): Promise<void> {
@@ -261,5 +289,49 @@ export const TauriService = {
 
   openUrl(url: string): Promise<void> {
     return invoke("open_url", { url });
+  },
+
+  // --- Minecraft Servers & SLP Ping ---
+  pingMinecraftServer(host: string, port?: number, timeoutMs?: number): Promise<ServerPingResult> {
+    return invoke("ping_minecraft_server", { host, port: port || null, timeoutMs: timeoutMs || null });
+  },
+
+  getFavoriteServers(): Promise<FavoriteServer[]> {
+    return invoke("get_favorite_servers");
+  },
+
+  saveFavoriteServer(name: string, host: string, port?: number, id?: string): Promise<FavoriteServer> {
+    return invoke("save_favorite_server", { id: id || null, name, host, port: port || null });
+  },
+
+  deleteFavoriteServer(id: string): Promise<void> {
+    return invoke("delete_favorite_server", { id });
+  },
+
+  // --- World Saves Manager ---
+  getInstanceWorlds(instanceId: string): Promise<any[]> {
+    return invoke("get_instance_worlds", { instanceId });
+  },
+
+  backupWorld(instanceId: string, worldFolder: string): Promise<string> {
+    return invoke("backup_world", { instanceId, worldFolder });
+  },
+
+  deleteWorld(instanceId: string, worldFolder: string): Promise<void> {
+    return invoke("delete_world", { instanceId, worldFolder });
+  },
+
+  // --- Screenshot Gallery ---
+  getInstanceScreenshots(instanceId: string): Promise<any[]> {
+    return invoke("get_instance_screenshots", { instanceId });
+  },
+
+  deleteScreenshot(instanceId: string, filename: string): Promise<void> {
+    return invoke("delete_screenshot", { instanceId, filename });
+  },
+
+  // --- In-App Auto-Updater ---
+  downloadAndInstallUpdate(downloadUrl: string): Promise<string> {
+    return invoke("download_and_install_update", { downloadUrl });
   },
 };

@@ -24,7 +24,11 @@
     }
   }
 
-  function handleDownload() {
+  function handleDirectUpdate() {
+    launcher.downloadAndInstallUpdate();
+  }
+
+  function handleBrowserDownload() {
     launcher.openReleaseUrl();
     launcher.showUpdateModal = false;
   }
@@ -124,6 +128,41 @@
         </div>
       </div>
 
+      <!-- In-App Download Progress -->
+      {#if launcher.isDownloadingUpdate || launcher.updateDownloadProgress}
+        <div class="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/25 space-y-2">
+          <div class="flex items-center justify-between text-xs font-semibold">
+            <span class="text-emerald-300 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              {launcher.updateDownloadProgress?.status || "Downloading update..."}
+            </span>
+            <span class="text-white font-mono font-bold">
+              {launcher.updateDownloadProgress?.percent ? launcher.updateDownloadProgress.percent.toFixed(1) : "0.0"}%
+            </span>
+          </div>
+
+          <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+            <div
+              class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-200"
+              style="width: {launcher.updateDownloadProgress?.percent || 0}%"
+            ></div>
+          </div>
+
+          <div class="flex justify-between text-[11px] font-mono text-neutral-400">
+            <span>
+              {launcher.updateDownloadProgress?.downloaded_bytes
+                ? (launcher.updateDownloadProgress.downloaded_bytes / (1024 * 1024)).toFixed(1)
+                : 0} MB
+            </span>
+            <span>
+              {launcher.updateDownloadProgress?.total_bytes
+                ? (launcher.updateDownloadProgress.total_bytes / (1024 * 1024)).toFixed(1) + " MB"
+                : "Downloading"}
+            </span>
+          </div>
+        </div>
+      {/if}
+
       <!-- Action Buttons Footer -->
       <div
         class="pt-4 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
@@ -139,17 +178,33 @@
         <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
           <button
             onclick={() => (launcher.showUpdateModal = false)}
-            class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+            disabled={launcher.isDownloadingUpdate}
+            class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
           >
             Later
           </button>
 
           <button
-            onclick={handleDownload}
-            class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-600/30 active:scale-95"
+            onclick={handleBrowserDownload}
+            disabled={launcher.isDownloadingUpdate}
+            class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
           >
-            <Download class="w-4 h-4" />
-            <span>Download Update</span>
+            <Download class="w-3.5 h-3.5" />
+            <span>Browser</span>
+          </button>
+
+          <button
+            onclick={handleDirectUpdate}
+            disabled={launcher.isDownloadingUpdate}
+            class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-600/30 active:scale-95 disabled:opacity-50"
+          >
+            {#if launcher.isDownloadingUpdate}
+              <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <span>INSTALLING...</span>
+            {:else}
+              <Sparkles class="w-4 h-4" />
+              <span>1-CLICK UPDATE</span>
+            {/if}
           </button>
         </div>
       </div>
