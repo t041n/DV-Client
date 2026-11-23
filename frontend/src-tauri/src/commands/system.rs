@@ -95,6 +95,18 @@ pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
         .map_err(|e| format!("Network request failed: {}", e))?;
 
     if !resp.status().is_success() {
+        if resp.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(UpdateCheckResult {
+                has_update: false,
+                current_version: branding::APP_VERSION.to_string(),
+                latest_version: branding::APP_VERSION.to_string(),
+                release_name: format!("Digital Vigital v{}", branding::APP_VERSION),
+                release_notes: String::new(),
+                published_at: None,
+                html_url: "https://github.com/t041n/DV-Client/releases".to_string(),
+                download_url: None,
+            });
+        }
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
         return Err(format!("GitHub API returned HTTP {}: {}", status, body));
@@ -109,13 +121,24 @@ pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
     let latest_tag = release.tag_name.clone();
     let has_update = is_version_newer(&latest_tag, current_ver);
 
-    // Look for Windows installer asset or preferred download asset
-    let download_url = release
-        .assets
-        .iter()
-        .find(|a| a.name.ends_with(".exe") || a.name.ends_with(".zip"))
-        .map(|a| a.browser_download_url.clone())
-        .or_else(|| Some(release.html_url.clone()));
+    // Look for platform-specific asset: .apk on Android, .exe/.msi/.zip on Windows, .AppImage/.deb/.tar.gz on Linux
+    let download_url = {
+        #[cfg(target_os = "android")]
+        let asset = release.assets.iter().find(|a| a.name.ends_with(".apk"));
+
+        #[cfg(target_os = "windows")]
+        let asset = release.assets.iter().find(|a| a.name.ends_with(".exe") || a.name.ends_with(".msi") || a.name.ends_with(".zip"));
+
+        #[cfg(target_os = "linux")]
+        let asset = release.assets.iter().find(|a| a.name.ends_with(".AppImage") || a.name.ends_with(".deb") || a.name.ends_with(".tar.gz"));
+
+        #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "android")))]
+        let asset = release.assets.iter().find(|a| a.name.ends_with(".exe") || a.name.ends_with(".zip") || a.name.ends_with(".tar.gz"));
+
+        asset
+            .map(|a| a.browser_download_url.clone())
+            .or_else(|| Some(release.html_url.clone()))
+    };
 
     let release_name = release
         .name

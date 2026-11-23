@@ -1279,10 +1279,8 @@ export class LauncherState {
       const res: UpdateCheckResult = await TauriService.checkForUpdates();
       this.updateInfo = res;
       if (res.has_update) {
-        if (userInitiated) {
-          this.showUpdateModal = true;
-          this.showToast(`New update available: ${res.latest_version}!`);
-        }
+        this.showToast(`🚀 New release available: ${res.latest_version}!`);
+        this.showUpdateModal = true;
       } else if (userInitiated) {
         this.showToast(`You are running the latest version (v${res.current_version}).`);
       }
