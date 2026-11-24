@@ -39,11 +39,11 @@ New-Item -ItemType Directory -Force -Path "$ProjectRoot\dist" | Out-Null
 if ($MakensisPath) {
     Write-Host "[2/3] Compiling NSIS installer with multi-drive selector..." -ForegroundColor Green
     & $MakensisPath "$ProjectRoot\packaging\windows\DigitalVigital.nsi"
-    Write-Host "[3/3] Windows Installer successfully created at dist\DigitalVigital-Setup-1.0.0.exe!" -ForegroundColor Green
+    Write-Host "[3/3] Windows Installer successfully created at dist\DigitalVigital-Setup-1.0.2.exe!" -ForegroundColor Green
 
     Write-Host "[Bonus] Generating portable ZIP archive..." -ForegroundColor Cyan
-    Compress-Archive -Path "$ProjectRoot\dv-launcher-app.exe", "$ProjectRoot\WebView2Loader.dll", "$ProjectRoot\assets\logo.png", "$ProjectRoot\assets\logo.ico", "$ProjectRoot\README.md" -DestinationPath "$ProjectRoot\dist\DigitalVigital-v1.0.0-windows-x64-portable.zip" -Force
-    Write-Host "Portable ZIP created at dist\DigitalVigital-v1.0.0-windows-x64-portable.zip!" -ForegroundColor Green
+    Compress-Archive -Path "$ProjectRoot\dv-launcher-app.exe", "$ProjectRoot\WebView2Loader.dll", "$ProjectRoot\assets\logo.png", "$ProjectRoot\assets\logo.ico", "$ProjectRoot\README.md" -DestinationPath "$ProjectRoot\dist\DigitalVigital-v1.0.2-windows-x64-portable.zip" -Force
+    Write-Host "Portable ZIP created at dist\DigitalVigital-v1.0.2-windows-x64-portable.zip!" -ForegroundColor Green
     exit 0
 }
 

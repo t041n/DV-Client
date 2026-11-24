@@ -4,7 +4,7 @@
 [Setup]
 AppId={{8B847688-662E-4D4B-A795-B33AC6EC8B99}
 AppName=Digital Vigital Launcher
-AppVersion=1.0.0
+AppVersion=1.0.2
 AppPublisher=Digital Vigital
 AppPublisherURL=https://digitalvigital.fun/minecraft
 AppSupportURL=https://discord.gg/flex-dv
@@ -15,7 +15,7 @@ DisableDirPage=no
 AllowNoIcons=yes
 AlwaysShowDirOnEditPage=yes
 OutputDir=..\..\dist
-OutputBaseFilename=DigitalVigital-Setup-1.0.0
+OutputBaseFilename=DigitalVigital-Setup-1.0.2
 SetupIconFile=..\..\assets\logo.ico
 WizardImageFile=wizard.bmp
 WizardSmallImageFile=header.bmp
