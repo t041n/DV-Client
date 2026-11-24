@@ -1454,6 +1454,43 @@ export class LauncherState {
     }
   }
 
+  async openInstanceSaves() {
+    if (!this.activeInstance) return;
+    try {
+      await TauriService.openInstanceSaves(this.activeInstance.id);
+    } catch (e) {
+      this.showToast("Failed to open saves: " + e);
+    }
+  }
+
+  async importWorld() {
+    if (!this.activeInstance) return;
+    try {
+      const res = await TauriService.importWorldDialog(this.activeInstance.id);
+      if (res) {
+        this.showToast(`Imported world "${res}" successfully!`);
+        await this.loadWorlds();
+      }
+    } catch (e) {
+      this.showToast("Failed to import world: " + e);
+    }
+  }
+
+  async importVanillaWorlds() {
+    if (!this.activeInstance) return;
+    try {
+      const count = await TauriService.importVanillaWorlds(this.activeInstance.id);
+      if (count > 0) {
+        this.showToast(`Imported ${count} world(s) from vanilla Minecraft!`);
+      } else {
+        this.showToast("No vanilla worlds found to import.");
+      }
+      await this.loadWorlds();
+    } catch (e) {
+      this.showToast("Failed to import vanilla worlds: " + e);
+    }
+  }
+
   async backupWorld(worldFolder: string) {
     if (!this.activeInstance) return;
     const target = this.worlds.find((w) => w.folder_name === worldFolder);
@@ -1480,6 +1517,15 @@ export class LauncherState {
   }
 
   // --- Screenshot Gallery ---
+  async openInstanceScreenshots() {
+    if (!this.activeInstance) return;
+    try {
+      await TauriService.openInstanceScreenshots(this.activeInstance.id);
+    } catch (e) {
+      this.showToast("Failed to open screenshots: " + e);
+    }
+  }
+
   async loadScreenshots() {
     if (!this.activeInstance) return;
     this.isLoadingScreenshots = true;

@@ -313,6 +313,18 @@ export const TauriService = {
     return invoke("get_instance_worlds", { instanceId });
   },
 
+  openInstanceSaves(instanceId: string): Promise<void> {
+    return invoke("open_instance_saves", { instanceId });
+  },
+
+  importWorldDialog(instanceId: string): Promise<string | null> {
+    return invoke("import_world_dialog", { instanceId });
+  },
+
+  importVanillaWorlds(instanceId: string): Promise<number> {
+    return invoke("import_vanilla_worlds", { instanceId });
+  },
+
   backupWorld(instanceId: string, worldFolder: string): Promise<string> {
     return invoke("backup_world", { instanceId, worldFolder });
   },
@@ -324,6 +336,10 @@ export const TauriService = {
   // --- Screenshot Gallery ---
   getInstanceScreenshots(instanceId: string): Promise<any[]> {
     return invoke("get_instance_screenshots", { instanceId });
+  },
+
+  openInstanceScreenshots(instanceId: string): Promise<void> {
+    return invoke("open_instance_screenshots", { instanceId });
   },
 
   deleteScreenshot(instanceId: string, filename: string): Promise<void> {

@@ -1,7 +1,7 @@
 use crate::AppState;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::State;
 use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
@@ -74,57 +74,98 @@ pub async fn get_instance_worlds(
         .ok_or_else(|| "Instance not found".to_string())?;
 
     let saves_dir = inst.game_dir(&mgr.instances_dir).join("saves");
-    if !saves_dir.exists() {
-        return Ok(Vec::new());
-    }
+    let _ = std::fs::create_dir_all(&saves_dir);
 
-    let entries = match std::fs::read_dir(&saves_dir) {
-        Ok(e) => e,
-        Err(_) => return Ok(Vec::new()),
-    };
+    let alt_saves_dir = inst.instance_dir(&mgr.instances_dir).join("saves");
 
     let mut worlds = Vec::new();
-    for entry in entries.filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
+    let mut seen_folders = std::collections::HashSet::new();
+
+    let scan_dirs = vec![saves_dir, alt_saves_dir];
+    for dir in scan_dirs {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if !path.is_dir() {
+                    continue;
+                }
+
+                let folder_name = entry.file_name().to_string_lossy().to_string();
+                if folder_name.starts_with('.') || seen_folders.contains(&folder_name) {
+                    continue;
+                }
+                seen_folders.insert(folder_name.clone());
+
+                let meta = entry.metadata().ok();
+                let modified = meta.and_then(|m| m.modified().ok()).and_then(|t| {
+                    t.duration_since(std::time::UNIX_EPOCH).ok().map(|d| d.as_secs())
+                });
+
+                let size = dir_size(&path);
+
+                // Check for icon.png in save folder
+                let icon_path = path.join("icon.png");
+                let icon_base64 = if icon_path.exists() {
+                    std::fs::read(&icon_path)
+                        .ok()
+                        .map(|b| format!("data:image/png;base64,{}", fast_base64_encode(&b)))
+                } else {
+                    None
+                };
+
+                let world_name = folder_name.replace('_', " ");
+
+                worlds.push(WorldSaveDto {
+                    folder_name,
+                    name: world_name,
+                    last_played_timestamp: modified,
+                    size_bytes: size,
+                    icon_base64,
+                });
+            }
         }
-
-        let folder_name = entry.file_name().to_string_lossy().to_string();
-        if folder_name.starts_with('.') {
-            continue;
-        }
-
-        let meta = entry.metadata().ok();
-        let modified = meta.and_then(|m| m.modified().ok()).and_then(|t| {
-            t.duration_since(std::time::UNIX_EPOCH).ok().map(|d| d.as_secs())
-        });
-
-        let size = dir_size(&path);
-
-        // Check for icon.png in save folder
-        let icon_path = path.join("icon.png");
-        let icon_base64 = if icon_path.exists() {
-            std::fs::read(&icon_path)
-                .ok()
-                .map(|b| format!("data:image/png;base64,{}", fast_base64_encode(&b)))
-        } else {
-            None
-        };
-
-        let world_name = folder_name.replace('_', " ");
-
-        worlds.push(WorldSaveDto {
-            folder_name,
-            name: world_name,
-            last_played_timestamp: modified,
-            size_bytes: size,
-            icon_base64,
-        });
     }
 
     worlds.sort_by(|a, b| b.last_played_timestamp.cmp(&a.last_played_timestamp));
     Ok(worlds)
+}
+
+#[tauri::command]
+pub async fn open_instance_saves(
+    instance_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mgr = state.instance_mgr.lock().await;
+    let inst = mgr
+        .instances
+        .get(&instance_id)
+        .ok_or_else(|| "Instance not found".to_string())?;
+
+    let saves_dir = inst.game_dir(&mgr.instances_dir).join("saves");
+    std::fs::create_dir_all(&saves_dir).map_err(|e| e.to_string())?;
+
+    open::that_detached(&saves_dir)
+        .or_else(|_| open::that(&saves_dir))
+        .map_err(|e| format!("Could not open folder: {}", e))
+}
+
+#[tauri::command]
+pub async fn open_instance_screenshots(
+    instance_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mgr = state.instance_mgr.lock().await;
+    let inst = mgr
+        .instances
+        .get(&instance_id)
+        .ok_or_else(|| "Instance not found".to_string())?;
+
+    let shots_dir = inst.game_dir(&mgr.instances_dir).join("screenshots");
+    std::fs::create_dir_all(&shots_dir).map_err(|e| e.to_string())?;
+
+    open::that_detached(&shots_dir)
+        .or_else(|_| open::that(&shots_dir))
+        .map_err(|e| format!("Could not open folder: {}", e))
 }
 
 #[tauri::command]
@@ -140,9 +181,14 @@ pub async fn backup_world(
         .ok_or_else(|| "Instance not found".to_string())?;
 
     let game_dir = inst.game_dir(&mgr.instances_dir);
-    let world_path = game_dir.join("saves").join(&world_folder);
+    let mut world_path = game_dir.join("saves").join(&world_folder);
     if !world_path.exists() {
-        return Err("World save folder does not exist".to_string());
+        let alt = inst.instance_dir(&mgr.instances_dir).join("saves").join(&world_folder);
+        if alt.exists() {
+            world_path = alt;
+        } else {
+            return Err("World save folder does not exist".to_string());
+        }
     }
 
     let backups_dir = game_dir.join("backups");
@@ -212,11 +258,153 @@ pub async fn delete_world(
         .get(&instance_id)
         .ok_or_else(|| "Instance not found".to_string())?;
 
-    let world_path = inst.game_dir(&mgr.instances_dir).join("saves").join(&world_folder);
-    if world_path.exists() {
-        std::fs::remove_dir_all(&world_path).map_err(|e| e.to_string())?;
+    let p1 = inst.game_dir(&mgr.instances_dir).join("saves").join(&world_folder);
+    if p1.exists() {
+        let _ = std::fs::remove_dir_all(&p1);
+    }
+    let p2 = inst.instance_dir(&mgr.instances_dir).join("saves").join(&world_folder);
+    if p2.exists() {
+        let _ = std::fs::remove_dir_all(&p2);
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn import_world_dialog(
+    instance_id: String,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    let picked = tokio::task::spawn_blocking(|| {
+        rfd::FileDialog::new()
+            .set_title("Select World Backup / Save (.zip)")
+            .add_filter("World Archive (*.zip)", &["zip"])
+            .pick_file()
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let file_path = match picked {
+        Some(p) => p,
+        None => return Ok(None),
+    };
+
+    let mgr = state.instance_mgr.lock().await;
+    let inst = mgr
+        .instances
+        .get(&instance_id)
+        .ok_or_else(|| "Instance not found".to_string())?;
+
+    let saves_dir = inst.game_dir(&mgr.instances_dir).join("saves");
+    std::fs::create_dir_all(&saves_dir).map_err(|e| e.to_string())?;
+
+    let file = File::open(&file_path).map_err(|e| format!("Cannot open zip file: {}", e))?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Invalid zip archive: {}", e))?;
+
+    // Check if zip root directly has level.dat or is nested in a folder
+    let mut root_has_level_dat = false;
+    for i in 0..archive.len() {
+        if let Ok(entry) = archive.by_index(i) {
+            let name = entry.name().replace('\\', "/");
+            if name == "level.dat" || name == "/level.dat" {
+                root_has_level_dat = true;
+                break;
+            }
+        }
+    }
+
+    let default_name = file_path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "Imported_World".to_string());
+
+    let target_dir = if root_has_level_dat {
+        saves_dir.join(&default_name)
+    } else {
+        saves_dir.clone()
+    };
+    std::fs::create_dir_all(&target_dir).map_err(|e| e.to_string())?;
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
+        let outpath = match file.enclosed_name() {
+            Some(path) => target_dir.join(path),
+            None => continue,
+        };
+
+        if file.name().ends_with('/') {
+            std::fs::create_dir_all(&outpath).map_err(|e| e.to_string())?;
+        } else {
+            if let Some(parent) = outpath.parent() {
+                if !parent.exists() {
+                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
+            }
+            let mut outfile = File::create(&outpath).map_err(|e| e.to_string())?;
+            std::io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(Some(default_name))
+}
+
+#[tauri::command]
+pub async fn import_vanilla_worlds(
+    instance_id: String,
+    state: State<'_, AppState>,
+) -> Result<usize, String> {
+    let vanilla_saves: Option<PathBuf> = if cfg!(target_os = "windows") {
+        std::env::var("APPDATA")
+            .ok()
+            .map(|a| Path::new(&a).join(".minecraft").join("saves"))
+    } else if cfg!(target_os = "macos") {
+        dirs::home_dir().map(|h| h.join("Library/Application Support/minecraft/saves"))
+    } else {
+        dirs::home_dir().map(|h| h.join(".minecraft/saves"))
+    };
+
+    let vanilla_dir = match vanilla_saves {
+        Some(d) if d.exists() => d,
+        _ => return Ok(0),
+    };
+
+    let mgr = state.instance_mgr.lock().await;
+    let inst = mgr
+        .instances
+        .get(&instance_id)
+        .ok_or_else(|| "Instance not found".to_string())?;
+
+    let target_saves = inst.game_dir(&mgr.instances_dir).join("saves");
+    std::fs::create_dir_all(&target_saves).map_err(|e| e.to_string())?;
+
+    let mut imported = 0;
+    if let Ok(entries) = std::fs::read_dir(&vanilla_dir) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let src_path = entry.path();
+            if src_path.is_dir() {
+                let name = entry.file_name();
+                let dst_path = target_saves.join(&name);
+                if !dst_path.exists() {
+                    fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
+                        std::fs::create_dir_all(dst)?;
+                        for entry in std::fs::read_dir(src)? {
+                            let entry = entry?;
+                            let ty = entry.file_type()?;
+                            if ty.is_dir() {
+                                copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
+                            } else {
+                                std::fs::copy(entry.path(), dst.join(entry.file_name()))?;
+                            }
+                        }
+                        Ok(())
+                    }
+                    if copy_dir_all(&src_path, &dst_path).is_ok() {
+                        imported += 1;
+                    }
+                }
+            }
+        }
+    }
+    Ok(imported)
 }
 
 #[tauri::command]
@@ -231,9 +419,7 @@ pub async fn get_instance_screenshots(
         .ok_or_else(|| "Instance not found".to_string())?;
 
     let screenshots_dir = inst.game_dir(&mgr.instances_dir).join("screenshots");
-    if !screenshots_dir.exists() {
-        return Ok(Vec::new());
-    }
+    let _ = std::fs::create_dir_all(&screenshots_dir);
 
     let entries = match std::fs::read_dir(&screenshots_dir) {
         Ok(e) => e,

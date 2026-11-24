@@ -69,7 +69,16 @@ pub fn get_launcher_info() -> LauncherInfo {
 
 #[tauri::command]
 pub async fn open_folder(path: String) -> Result<(), String> {
-    open::that(&path).map_err(|e| e.to_string())?;
+    if path.trim().is_empty() {
+        return Ok(());
+    }
+    let p = std::path::Path::new(&path);
+    if !p.exists() {
+        let _ = std::fs::create_dir_all(p);
+    }
+    open::that_detached(&path)
+        .or_else(|_| open::that(&path))
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 

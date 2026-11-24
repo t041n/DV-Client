@@ -612,54 +612,6 @@
   <!-- ========================================================================= -->
   {#if launcher.modStudioSubTab === "catalog"}
     <div class="space-y-5">
-      <!-- 1-Click Essential FPS Suite Banner -->
-      <div
-        class="relative rounded-2xl overflow-hidden border border-red-500/30 bg-gradient-to-r from-red-950/40 via-[#100a0e] to-[#0d0f17] p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4"
-      >
-        <div class="flex items-center gap-4">
-          <div
-            class="w-12 h-12 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0"
-          >
-            <Sparkles class="w-6 h-6" />
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <h3 class="font-bold text-base text-white">
-                DV Essential Performance Suite
-              </h3>
-              <span
-                class="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-xs uppercase font-bold"
-              >
-                1-Click Boost
-              </span>
-            </div>
-            <p class="text-xs text-neutral-300 mt-1 leading-relaxed">
-              Installs Sodium (or Embeddium on Forge), Lithium, and FerriteCore
-              for maximum FPS rendering, smooth chunk generation, and low memory
-              usage.
-            </p>
-          </div>
-        </div>
-
-        <button
-          onclick={() => launcher.installEssentialFpsPack()}
-          disabled={!launcher.activeInstance ||
-            launcher.installingModId !== "" ||
-            launcher.activeInstance.mod_loader.toLowerCase() === "vanilla"}
-          class="w-full md:w-auto px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-red-500/20 transition-all cursor-pointer shrink-0 disabled:opacity-50"
-        >
-          {#if launcher.installingModId}
-            <div
-              class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"
-            ></div>
-            <span>BOOSTING...</span>
-          {:else}
-            <Zap class="w-4 h-4" />
-            <span>1-CLICK INSTALL ALL</span>
-          {/if}
-        </button>
-      </div>
-
       <!-- Catalog Filter Bar -->
       <div class="space-y-3">
         <div

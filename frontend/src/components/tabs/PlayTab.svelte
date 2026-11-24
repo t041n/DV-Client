@@ -1,7 +1,5 @@
 <script lang="ts">
   import { launcher } from "../../state/launcher.svelte";
-  import { TauriService } from "../../services/tauri";
-  import type { ServerPingResult } from "../../types";
   import {
     Play,
     Square,
@@ -24,14 +22,8 @@
     FileText,
     Info,
     User,
-    Server,
-    Wifi,
-    WifiOff,
-    Plus,
     Trash2,
     RefreshCw,
-    Globe,
-    Radio,
     Image,
     Camera,
     Map,
@@ -39,46 +31,9 @@
     Eye,
   } from "lucide-svelte";
 
-  let showAddServerModal = $state(false);
   let showWorldsModal = $state(false);
   let showScreenshotsModal = $state(false);
   let selectedPreviewImage = $state<string | null>(null);
-  let newServerName = $state("");
-  let newServerAddress = $state("");
-  let isTestingPing = $state(false);
-  let testPingResult = $state<ServerPingResult | null>(null);
-  let testPingError = $state<string | null>(null);
-
-  async function handleTestPing() {
-    if (!newServerAddress.trim()) return;
-    isTestingPing = true;
-    testPingResult = null;
-    testPingError = null;
-    try {
-      const parts = newServerAddress.trim().split(":");
-      const host = parts[0];
-      const port = parts[1] ? parseInt(parts[1], 10) : 25565;
-      const res = await TauriService.pingMinecraftServer(host, port, 4000);
-      testPingResult = res;
-    } catch (e: any) {
-      testPingError = typeof e === "string" ? e : (e?.message || "Failed to reach server");
-    } finally {
-      isTestingPing = false;
-    }
-  }
-
-  async function handleSaveServer() {
-    if (!newServerName.trim() || !newServerAddress.trim()) return;
-    const parts = newServerAddress.trim().split(":");
-    const host = parts[0];
-    const port = parts[1] ? parseInt(parts[1], 10) : 25565;
-    await launcher.saveFavoriteServer(newServerName.trim(), host, port);
-    showAddServerModal = false;
-    newServerName = "";
-    newServerAddress = "";
-    testPingResult = null;
-    testPingError = null;
-  }
 
   function getLoaderColor(loader: string = "") {
     const l = loader.toLowerCase();
@@ -533,193 +488,8 @@
     </div>
   </div>
 
-  <!-- Multiplayer & Direct Connect Server Hub -->
-  <div class="p-5 sm:p-6 rounded-2xl bg-[#0e1017]/95 border border-white/10 shadow-xl space-y-4">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-          <Globe class="w-5 h-5" />
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h3 class="font-bold text-base text-white">Multiplayer Quick-Connect</h3>
-            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-              SLP Ping
-            </span>
-          </div>
-          <p class="text-xs text-neutral-400 mt-0.5">
-            Real-time ping monitor & 1-click direct join bypassing Minecraft's title menu.
-          </p>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2 self-start sm:self-auto">
-        <button
-          onclick={() => launcher.pingAllServers()}
-          disabled={launcher.isPingingServers}
-          title="Refresh server ping and status"
-          class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw class="w-3.5 h-3.5 text-neutral-300 {launcher.isPingingServers ? 'animate-spin' : ''}" />
-          <span>{launcher.isPingingServers ? "Pinging..." : "Refresh"}</span>
-        </button>
-
-        <button
-          onclick={() => {
-            showAddServerModal = true;
-            testPingResult = null;
-            testPingError = null;
-          }}
-          class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm shadow-emerald-950"
-        >
-          <Plus class="w-3.5 h-3.5" />
-          <span>Add Server</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Server Cards List -->
-    {#if launcher.favoriteServers.length === 0}
-      <div class="py-6 text-center text-xs text-neutral-400">
-        No multiplayer servers saved yet. Click "Add Server" to save your favorite SMP or mini-game server!
-      </div>
-    {:else}
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-        {#each launcher.favoriteServers as server}
-          <div class="p-4 rounded-xl bg-white/[0.03] border border-white/8 hover:border-white/16 transition-all flex flex-col justify-between group">
-            <div class="space-y-2.5">
-              <!-- Header: Favicon + Name + Latency Badge -->
-              <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  {#if server.ping?.favicon}
-                    <img
-                      src={server.ping.favicon}
-                      alt={server.name}
-                      class="w-7 h-7 rounded-lg border border-white/10 shrink-0 bg-black/40"
-                    />
-                  {:else}
-                    <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                      <Server class="w-3.5 h-3.5 text-neutral-400" />
-                    </div>
-                  {/if}
-                  <div class="min-w-0">
-                    <h4 class="text-sm font-bold text-white truncate leading-tight">{server.name}</h4>
-                    <p class="text-[11px] font-mono text-neutral-400 truncate">{server.host}{server.port !== 25565 ? `:${server.port}` : ''}</p>
-                  </div>
-                </div>
-
-                <!-- Latency / Status Badge -->
-                <div class="shrink-0">
-                  {#if server.isPinging || launcher.isPingingServers}
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-white/5 text-neutral-400 border border-white/10">
-                      <Radio class="w-2.5 h-2.5 animate-pulse text-amber-400" />
-                      ...
-                    </span>
-                  {:else if server.ping?.online}
-                    <span
-                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold border {server.ping.latency_ms < 80 ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25' : server.ping.latency_ms < 160 ? 'bg-amber-500/15 text-amber-300 border-amber-500/25' : 'bg-rose-500/15 text-rose-300 border-rose-500/25'}"
-                    >
-                      <Wifi class="w-2.5 h-2.5" />
-                      {server.ping.latency_ms}ms
-                    </span>
-                  {:else}
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-neutral-800/80 text-neutral-400 border border-white/10">
-                      <WifiOff class="w-2.5 h-2.5 text-neutral-500" />
-                      Offline
-                    </span>
-                  {/if}
-                </div>
-              </div>
-
-              <!-- MOTD preview or player count -->
-              <div class="text-[11px] text-neutral-300 line-clamp-1 min-h-[16px] leading-tight">
-                {#if server.ping?.online}
-                  <span class="text-white/90">{server.ping.motd || "A Minecraft Server"}</span>
-                {:else}
-                  <span class="text-neutral-500 italic">Server unreachable or offline</span>
-                {/if}
-              </div>
-
-              <!-- Player Count & Version Tag -->
-              {#if server.ping?.online}
-                <div class="flex items-center justify-between text-[10px] text-neutral-400 font-mono">
-                  <span>{server.ping.players_online} / {server.ping.players_max} online</span>
-                  <span class="truncate max-w-[110px] text-neutral-400">{server.ping.version_name}</span>
-                </div>
-              {/if}
-            </div>
-
-            <!-- Action Buttons: Direct Join & Delete -->
-            <div class="flex items-center gap-2 mt-3.5 pt-2.5 border-t border-white/5">
-              <button
-                onclick={() => {
-                  const addr = server.host + (server.port !== 25565 ? `:${server.port}` : "");
-                  launcher.launchOrStop(addr);
-                }}
-                disabled={launcher.gameStatus === "launching" || launcher.gameStatus === "running" || launcher.gameStatus === "downloading"}
-                class="flex-1 py-1.5 px-3 rounded-lg bg-white/5 hover:bg-emerald-500/20 hover:border-emerald-500/30 border border-white/10 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-              >
-                <Play class="w-3 h-3 fill-emerald-400 text-emerald-400" />
-                <span>Direct Join</span>
-              </button>
-
-              <button
-                onclick={() => launcher.deleteFavoriteServer(server.id)}
-                title="Remove server"
-                class="p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 hover:border-rose-500/30 border border-white/10 text-neutral-400 hover:text-rose-300 transition-all cursor-pointer"
-              >
-                <Trash2 class="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </div>
-
   <!-- Quick Feature Grid -->
   <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-    <!-- 1-Click Essential FPS Pack -->
-    <div
-      class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 hover:border-white/16 transition-all flex flex-col justify-between group"
-    >
-      <div>
-        <div class="flex items-center justify-between mb-3">
-          <div
-            class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 group-hover:scale-110 transition-transform"
-          >
-            <Sparkles class="w-5 h-5" />
-          </div>
-          <span
-            class="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20"
-          >
-            Turbo Spec
-          </span>
-        </div>
-        <h3 class="font-bold text-base text-white">Essential FPS Suite</h3>
-        <p class="text-xs text-neutral-300 mt-1.5 leading-relaxed font-normal">
-          One-click install Sodium, Lithium, and FerriteCore for 3x higher FPS
-          and stutter-free chunk loading.
-        </p>
-      </div>
-
-      <button
-        onclick={() => launcher.installEssentialFpsPack()}
-        disabled={!launcher.activeInstance || launcher.installingModId !== ""}
-        class="mt-5 w-full py-2.5 rounded-xl bg-white/5 hover:bg-red-500/20 hover:border-red-500/30 border border-white/10 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-      >
-        {#if launcher.installingModId}
-          <div
-            class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"
-          ></div>
-          <span>INSTALLING...</span>
-        {:else}
-          <Zap class="w-3.5 h-3.5 text-red-400" />
-          <span>1-CLICK FPS BOOST</span>
-        {/if}
-      </button>
-    </div>
-
     <!-- Storage & Engine Management Card -->
     <div
       class="p-6 rounded-2xl bg-[#0e1017]/90 border border-white/8 hover:border-white/16 transition-all flex flex-col justify-between group"
@@ -894,102 +664,6 @@
     </div>
   </div>
 
-  <!-- Add Server Modal -->
-  {#if showAddServerModal}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-      <div class="w-full max-w-md p-6 rounded-2xl bg-[#0f111a] border border-white/15 shadow-2xl space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-white/10">
-          <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <Plus class="w-4 h-4" />
-            </div>
-            <h3 class="text-base font-bold text-white">Add Multiplayer Server</h3>
-          </div>
-          <button
-            onclick={() => (showAddServerModal = false)}
-            class="p-1.5 rounded-lg hover:bg-white/10 text-neutral-400 hover:text-white transition-all cursor-pointer"
-          >
-            <X class="w-4 h-4" />
-          </button>
-        </div>
-
-        <div class="space-y-3">
-          <div>
-            <label for="server-name-input" class="block text-xs font-semibold text-neutral-300 mb-1">Server Name</label>
-            <input
-              id="server-name-input"
-              type="text"
-              bind:value={newServerName}
-              placeholder="e.g. Hypixel Network, Friends SMP"
-              class="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-emerald-500/50 text-white text-xs outline-none transition-all"
-            />
-          </div>
-
-          <div>
-            <label for="server-addr-input" class="block text-xs font-semibold text-neutral-300 mb-1">Server Address (Host or Host:Port)</label>
-            <div class="flex gap-2">
-              <input
-                id="server-addr-input"
-                type="text"
-                bind:value={newServerAddress}
-                placeholder="e.g. mc.hypixel.net or 192.168.1.50:25565"
-                class="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-emerald-500/50 text-white text-xs outline-none transition-all font-mono"
-              />
-              <button
-                type="button"
-                onclick={handleTestPing}
-                disabled={isTestingPing || !newServerAddress.trim()}
-                class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {#if isTestingPing}
-                  <div class="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Pinging...</span>
-                {:else}
-                  <Radio class="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Test Ping</span>
-                {/if}
-              </button>
-            </div>
-          </div>
-
-          <!-- Test Ping Result Preview -->
-          {#if testPingResult}
-            <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs space-y-1">
-              <div class="flex items-center justify-between">
-                <span class="font-bold text-emerald-400 flex items-center gap-1.5">
-                  <Wifi class="w-3.5 h-3.5" /> Reachable ({testPingResult.latency_ms}ms)
-                </span>
-                <span class="text-neutral-300 font-mono text-[11px]">{testPingResult.players_online} / {testPingResult.players_max} online</span>
-              </div>
-              <p class="text-neutral-300 text-[11px] line-clamp-1">{testPingResult.motd || "Ready to connect"}</p>
-            </div>
-          {:else if testPingError}
-            <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs text-rose-300 flex items-center gap-2">
-              <WifiOff class="w-4 h-4 shrink-0 text-rose-400" />
-              <span class="truncate">{testPingError}</span>
-            </div>
-          {/if}
-        </div>
-
-        <div class="flex justify-end gap-2 pt-3 border-t border-white/10">
-          <button
-            onclick={() => (showAddServerModal = false)}
-            class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 text-xs font-semibold transition-all cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            onclick={handleSaveServer}
-            disabled={!newServerName.trim() || !newServerAddress.trim()}
-            class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-lg shadow-emerald-950"
-          >
-            Save Server
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
-
   <!-- World Saves & Backups Modal -->
   {#if showWorldsModal}
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
@@ -1074,15 +748,33 @@
           {/if}
         </div>
 
-        <div class="pt-3 border-t border-white/10 flex justify-between items-center shrink-0">
+        <div class="pt-3 border-t border-white/10 flex flex-wrap justify-between items-center gap-2 shrink-0">
           <span class="text-xs text-neutral-400 font-mono">{launcher.worlds.length} worlds detected</span>
-          <button
-            onclick={() => launcher.openFolder(launcher.activeInstance ? `${launcher.settings.instances_directory || ''}/${launcher.activeInstance.id}/saves` : "")}
-            class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            <FolderOpen class="w-3.5 h-3.5" />
-            <span>Open Saves Folder</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              onclick={() => launcher.importWorld()}
+              class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border border-emerald-500/30"
+              title="Import a world save archive (.zip)"
+            >
+              <Download class="w-3.5 h-3.5" />
+              <span>Import .zip</span>
+            </button>
+            <button
+              onclick={() => launcher.importVanillaWorlds()}
+              class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border border-white/10"
+              title="Import worlds from Vanilla Minecraft (%APPDATA%/.minecraft/saves)"
+            >
+              <Sparkles class="w-3.5 h-3.5 text-amber-400" />
+              <span>Import Vanilla</span>
+            </button>
+            <button
+              onclick={() => launcher.openInstanceSaves()}
+              class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border border-white/10"
+            >
+              <FolderOpen class="w-3.5 h-3.5" />
+              <span>Open Saves Folder</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1166,8 +858,8 @@
         <div class="pt-3 border-t border-white/10 flex justify-between items-center shrink-0">
           <span class="text-xs text-neutral-400 font-mono">{launcher.screenshots.length} screenshots found</span>
           <button
-            onclick={() => launcher.openFolder(launcher.activeInstance ? `${launcher.settings.instances_directory || ''}/${launcher.activeInstance.id}/screenshots` : "")}
-            class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            onclick={() => launcher.openInstanceScreenshots()}
+            class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border border-white/10"
           >
             <FolderOpen class="w-3.5 h-3.5" />
             <span>Open Screenshots Folder</span>
