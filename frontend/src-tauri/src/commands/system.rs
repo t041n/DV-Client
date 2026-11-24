@@ -263,13 +263,13 @@ pub async fn download_and_install_update(
         if fname.ends_with(".exe") || fname.ends_with(".msi") {
             let _ = std::process::Command::new(&dest_path).spawn();
         } else {
-            let _ = dv_launcher::utils::open_path_in_explorer(&dest_path);
+            let _ = open::that(&dest_path);
         }
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = dv_launcher::utils::open_path_in_explorer(&dest_path);
+        let _ = open::that(&dest_path);
     }
 
     Ok(dest_path.to_string_lossy().to_string())

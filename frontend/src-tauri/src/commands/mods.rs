@@ -516,5 +516,5 @@ pub async fn open_content_folder(
     };
 
     let _ = std::fs::create_dir_all(&target_dir);
-    dv_launcher::utils::open_path_in_explorer(&target_dir).map_err(|e| e.to_string())
+    open::that(&target_dir).map_err(|e| e.to_string())
 }

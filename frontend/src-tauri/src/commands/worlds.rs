@@ -24,6 +24,29 @@ pub struct ScreenshotDto {
     pub thumbnail_base64: Option<String>,
 }
 
+fn fast_base64_encode(data: &[u8]) -> String {
+    const B64: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as usize;
+        let b1 = if chunk.len() > 1 { chunk[1] as usize } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] as usize } else { 0 };
+        out.push(B64[b0 >> 2] as char);
+        out.push(B64[((b0 & 3) << 4) | (b1 >> 4)] as char);
+        if chunk.len() > 1 {
+            out.push(B64[((b1 & 15) << 2) | (b2 >> 6)] as char);
+        } else {
+            out.push('=');
+        }
+        if chunk.len() > 2 {
+            out.push(B64[b2 & 63] as char);
+        } else {
+            out.push('=');
+        }
+    }
+    out
+}
+
 fn dir_size(path: &Path) -> u64 {
     let mut total = 0;
     if let Ok(entries) = std::fs::read_dir(path) {
@@ -84,7 +107,7 @@ pub async fn get_instance_worlds(
         let icon_base64 = if icon_path.exists() {
             std::fs::read(&icon_path)
                 .ok()
-                .map(|b| format!("data:image/png;base64,{}", dv_launcher::utils::base64_encode(&b)))
+                .map(|b| format!("data:image/png;base64,{}", fast_base64_encode(&b)))
         } else {
             None
         };
@@ -233,7 +256,7 @@ pub async fn get_instance_screenshots(
                 let thumbnail_base64 = if size < 4 * 1024 * 1024 {
                     std::fs::read(&path)
                         .ok()
-                        .map(|b| format!("data:image/png;base64,{}", dv_launcher::utils::base64_encode(&b)))
+                        .map(|b| format!("data:image/png;base64,{}", fast_base64_encode(&b)))
                 } else {
                     None
                 };

@@ -34,3 +34,4 @@ chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "multipart", "stream"] }
 futures-util = "0.3"
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
