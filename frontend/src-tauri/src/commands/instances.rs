@@ -149,6 +149,12 @@ pub async fn create_instance(
     }
     let _ = cm.save();
 
+    if loader.to_lowercase().contains("fabric") {
+        let inst_dir = inst.instance_dir(&mgr.instances_dir);
+        let game_dir = inst.game_dir(&mgr.instances_dir);
+        dv_launcher::instances::ensure_fabric_defaults(&inst_dir, &game_dir, &mc_version).await;
+    }
+
     Ok(InstanceDto {
         id: inst.id.clone(),
         name: inst.name.clone(),

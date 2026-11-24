@@ -146,6 +146,11 @@ pub async fn launch_game(
     let game_dir = inst.game_dir(config_clone.instances_dir());
     let _ = std::fs::create_dir_all(&game_dir);
 
+    if inst.mod_loader.to_lowercase().contains("fabric") {
+        let _ = app_handle.emit("launch-status", "Verifying DV Client Fabric plugin & Fabric API...");
+        dv_launcher::instances::ensure_fabric_defaults(&inst_dir, &game_dir, &inst.minecraft_version).await;
+    }
+
     // Sync instance mods and in-game universal player skin/cape pack (with GUID and version compatibility)
     sync_instance_mods(&inst_dir, &game_dir);
     let _ = dv_launcher::skins::ensure_in_game_skin_pack(

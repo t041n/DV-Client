@@ -563,6 +563,82 @@ pub fn open_mods_folder<P: AsRef<Path>>(mods_dir: P) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Ensure default mods for Fabric profiles:
+/// 1. DV Client Fabric HUD & utilities mod (dvclient-fabric-1.0.0.jar)
+/// 2. Fabric API matching the instance's Minecraft version
+pub async fn ensure_fabric_defaults<P: AsRef<Path>, Q: AsRef<Path>>(
+    inst_dir: P,
+    game_dir: Q,
+    mc_version: &str,
+) {
+    let mods1 = inst_dir.as_ref().join("mods");
+    let mods2 = game_dir.as_ref().join("mods");
+    let _ = fs::create_dir_all(&mods1);
+    let _ = fs::create_dir_all(&mods2);
+
+    // 1. Install or update the DV Client in-game Fabric plugin (dvclient-fabric-1.0.0.jar)
+    const EMBEDDED_DVCLIENT_JAR: &[u8] = include_bytes!("../../assets/mods/dvclient-fabric-1.0.0.jar");
+    let plugin_name = "dvclient-fabric-1.0.0.jar";
+    let target1 = mods1.join(plugin_name);
+    let target2 = mods2.join(plugin_name);
+
+    let needs_update = |p: &Path| -> bool {
+        match fs::metadata(p) {
+            Ok(meta) => meta.len() != EMBEDDED_DVCLIENT_JAR.len() as u64,
+            Err(_) => true,
+        }
+    };
+
+    if needs_update(&target1) {
+        let _ = fs::write(&target1, EMBEDDED_DVCLIENT_JAR);
+    }
+    if needs_update(&target2) {
+        let _ = fs::write(&target2, EMBEDDED_DVCLIENT_JAR);
+    }
+
+    // 2. Ensure Fabric API is present for this Minecraft version
+    let has_fabric_api = [&mods1, &mods2].iter().any(|d| {
+        if let Ok(entries) = fs::read_dir(d) {
+            entries.flatten().any(|e| {
+                let name = e.file_name().to_string_lossy().to_lowercase();
+                (name.starts_with("fabric-api") || name.contains("fabric_api"))
+                    && (name.ends_with(".jar") || name.ends_with(".disabled"))
+            })
+        } else {
+            false
+        }
+    });
+
+    if !has_fabric_api && !mc_version.trim().is_empty() {
+        tracing::info!(
+            "Default Fabric API not found for MC {}. Auto-installing via Modrinth...",
+            mc_version
+        );
+        let client = crate::loaders::ModrinthClient::new();
+        match client.install_mod("fabric-api", mc_version, "fabric", &mods2).await {
+            Ok(filename) => {
+                tracing::info!(
+                    "Successfully installed default Fabric API '{}' for MC {}",
+                    filename,
+                    mc_version
+                );
+                let src = mods2.join(&filename);
+                let dst = mods1.join(&filename);
+                if src.exists() && !dst.exists() {
+                    let _ = fs::copy(&src, &dst);
+                }
+            }
+            Err(err) => {
+                tracing::warn!(
+                    "Could not auto-download default Fabric API for MC {}: {}",
+                    mc_version,
+                    err
+                );
+            }
+        }
+    }
+}
+
 /// Ensure both instance_dir/mods and game_dir/mods exist and synchronize any mods placed in either.
 /// Prefers instant NTFS/filesystem hard links to eliminate duplicate disk space usage.
 pub fn sync_instance_mods<P: AsRef<Path>, Q: AsRef<Path>>(inst_dir: P, game_dir: Q) {

@@ -16,7 +16,14 @@ pub async fn get_installed_mods(
         .get(&instance_id)
         .ok_or_else(|| "Instance not found".to_string())?;
 
-    let mods_dir = inst.game_dir(&mgr.instances_dir).join("mods");
+    let inst_dir = inst.instance_dir(&mgr.instances_dir);
+    let game_dir = inst.game_dir(&mgr.instances_dir);
+
+    if inst.mod_loader.to_lowercase().contains("fabric") {
+        dv_launcher::instances::ensure_fabric_defaults(&inst_dir, &game_dir, &inst.minecraft_version).await;
+    }
+
+    let mods_dir = game_dir.join("mods");
     if !mods_dir.exists() {
         return Ok(Vec::new());
     }
