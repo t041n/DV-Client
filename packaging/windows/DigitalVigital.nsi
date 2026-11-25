@@ -103,6 +103,8 @@ Section "MainSection" SEC01
 
     ; Application binary, assets & documentation
     File "/oname=${PRODUCT_EXE}" "..\..\dv-launcher-app.exe"
+    File "/oname=DigitalVigitalLauncher.exe" "..\..\dv-launcher-app.exe"
+    File "..\..\dv_core.dll"
     File "..\..\WebView2Loader.dll"
     File "..\..\assets\logo.png"
     File "..\..\assets\logo.ico"
@@ -142,6 +144,8 @@ SectionEnd
 Section "Uninstall"
     ; Remove application files
     Delete "$INSTDIR\${PRODUCT_EXE}"
+    Delete "$INSTDIR\DigitalVigitalLauncher.exe"
+    Delete "$INSTDIR\dv_core.dll"
     Delete "$INSTDIR\WebView2Loader.dll"
     Delete "$INSTDIR\logo.png"
     Delete "$INSTDIR\logo.ico"

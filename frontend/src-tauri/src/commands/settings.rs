@@ -11,7 +11,12 @@ pub async fn detect_java(state: State<'_, AppState>) -> Result<Vec<JavaDto>, Str
         let cm = state.config_mgr.lock().await;
         cm.config.runtimes_dir()
     };
-    let installations = JavaDetector::scan_system_with_extra(&[extra_dir]);
+    let installations = tokio::task::spawn_blocking(move || {
+        JavaDetector::scan_system_with_extra(&[extra_dir])
+    })
+    .await
+    .map_err(|e| format!("Java detection task failed: {}", e))?;
+
     Ok(installations
         .into_iter()
         .map(|j| JavaDto {
@@ -72,7 +77,10 @@ pub async fn pick_custom_java() -> Result<Option<JavaDto>, String> {
 
 #[tauri::command]
 pub async fn detect_gpus() -> Result<Vec<GpuDto>, String> {
-    let gpus = GpuDetector::detect_gpus();
+    let gpus = tokio::task::spawn_blocking(GpuDetector::detect_gpus)
+        .await
+        .map_err(|e| format!("GPU detection task failed: {}", e))?;
+
     Ok(gpus
         .into_iter()
         .map(|g| GpuDto {

@@ -383,35 +383,40 @@ pub fn inspect_mod_jar<P: AsRef<Path>>(
 }
 
 /// Scan the mods directory of an instance and return all found mods (.jar and .jar.disabled).
+/// Uses Rayon parallel iteration to inspect all mod archives concurrently across CPU cores.
 pub fn scan_mods<P: AsRef<Path>>(mods_dir: P) -> Vec<ModEntry> {
+    use rayon::prelude::*;
     let dir = mods_dir.as_ref();
-    let mut mods = Vec::new();
 
     if !dir.exists() {
         let _ = fs::create_dir_all(dir);
-        return mods;
+        return Vec::new();
     }
 
     let meta_map = load_mods_meta(dir);
 
-    if let Ok(entries) = fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
+    let entries = match fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return Vec::new(),
+    };
 
-            let file_name = match path.file_name().and_then(|n| n.to_str()) {
-                Some(n) => n.to_string(),
-                None => continue,
-            };
+    let files: Vec<PathBuf> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_file())
+        .collect();
+
+    let mut mods: Vec<ModEntry> = files
+        .into_par_iter()
+        .filter_map(|path| {
+            let file_name = path.file_name()?.to_str()?.to_string();
 
             let is_jar = file_name.ends_with(".jar");
             let is_disabled =
                 file_name.ends_with(".jar.disabled") || file_name.ends_with(".disabled");
 
             if !is_jar && !is_disabled {
-                continue;
+                return None;
             }
 
             let is_enabled = is_jar;
@@ -456,7 +461,7 @@ pub fn scan_mods<P: AsRef<Path>>(mods_dir: P) -> Vec<ModEntry> {
                 (None, None)
             };
 
-            mods.push(ModEntry {
+            Some(ModEntry {
                 file_name,
                 name,
                 version,
@@ -469,9 +474,9 @@ pub fn scan_mods<P: AsRef<Path>>(mods_dir: P) -> Vec<ModEntry> {
                 mod_id,
                 project_id,
                 slug,
-            });
-        }
-    }
+            })
+        })
+        .collect();
 
     // Sort alphabetically by name
     mods.sort_by_key(|a| a.name.to_lowercase());

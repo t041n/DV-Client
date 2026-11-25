@@ -289,10 +289,64 @@ impl AsyncDownloader {
         let bytes_downloaded = Arc::new(AtomicU64::new(0));
         let progress_cb = progress_callback.map(Arc::new);
 
-        let semaphore = Arc::new(Semaphore::new(self.concurrency));
-        let mut handles = Vec::with_capacity(total_items);
+        // --- HIGH-PERFORMANCE RAYON PRE-VERIFICATION ---
+        // Pre-verify existing files in parallel on all CPU cores.
+        // Files that already exist and match expected size/hash are skipped instantly without semaphore contention.
+        let (already_valid, pending_tasks): (Vec<DownloadTask>, Vec<DownloadTask>) = {
+            use rayon::prelude::*;
+            tasks.into_par_iter().partition(|task| {
+                if !task.destination.exists() {
+                    return false;
+                }
+                if let Some(expected_size) = task.expected_size {
+                    if let Ok(meta) = fs::metadata(&task.destination) {
+                        if meta.len() != expected_size {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                if let Some(ref sha1) = task.sha1 {
+                    crate::security::hashes::verify_file_sha1(&task.destination, sha1)
+                } else if let Some(ref sha256) = task.sha256 {
+                    crate::security::hashes::verify_file_sha256(&task.destination, sha256)
+                } else {
+                    true
+                }
+            })
+        };
 
-        for task in tasks {
+        let already_count = already_valid.len();
+        let already_bytes: u64 = already_valid.iter().map(|t| t.expected_size.unwrap_or(0)).sum();
+
+        completed_items.store(already_count, Ordering::SeqCst);
+        bytes_downloaded.store(already_bytes, Ordering::SeqCst);
+
+        if let Some(ref callback) = progress_cb {
+            if already_count > 0 {
+                let percent = (already_count as f32 / total_items as f32) * 100.0;
+                callback(DownloadProgress {
+                    current_item: format!("Cached ({} of {} files verified)", already_count, total_items),
+                    completed_items: already_count,
+                    total_items,
+                    bytes_downloaded: already_bytes,
+                    total_bytes,
+                    percent,
+                });
+            }
+        }
+
+        if pending_tasks.is_empty() {
+            return Ok(true);
+        }
+
+        // Use adaptive concurrency: at least 16 for high-speed parallel downloads
+        let concurrency = std::cmp::max(self.concurrency, 16);
+        let semaphore = Arc::new(Semaphore::new(concurrency));
+        let mut handles = Vec::with_capacity(pending_tasks.len());
+
+        for task in pending_tasks {
             let sem = Arc::clone(&semaphore);
             let dl = self.clone();
             let c_items = Arc::clone(&completed_items);

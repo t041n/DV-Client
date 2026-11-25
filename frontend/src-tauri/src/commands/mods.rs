@@ -28,7 +28,11 @@ pub async fn get_installed_mods(
         return Ok(Vec::new());
     }
 
-    Ok(scan_mods(&mods_dir))
+    tokio::task::spawn_blocking(move || {
+        scan_mods(&mods_dir)
+    })
+    .await
+    .map_err(|e| format!("Mod scan task failed: {}", e))
 }
 
 #[tauri::command]

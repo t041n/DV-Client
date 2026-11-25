@@ -76,6 +76,14 @@ pub async fn open_folder(path: String) -> Result<(), String> {
     if !p.exists() {
         let _ = std::fs::create_dir_all(p);
     }
+    #[cfg(target_os = "windows")]
+    {
+        let mut cmd = std::process::Command::new("explorer.exe");
+        cmd.arg(&path);
+        if cmd.spawn().is_ok() {
+            return Ok(());
+        }
+    }
     open::that_detached(&path)
         .or_else(|_| open::that(&path))
         .map_err(|e| e.to_string())?;

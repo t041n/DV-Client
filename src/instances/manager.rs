@@ -134,15 +134,21 @@ impl InstanceManager {
         self.instances.clear();
 
         if let Ok(entries) = fs::read_dir(&self.instances_dir) {
-            for entry in entries.flatten() {
-                if entry.path().is_dir() {
-                    let conf_file = entry.path().join("instance.json");
+            use rayon::prelude::*;
+            let dirs: Vec<PathBuf> = entries
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| p.is_dir())
+                .collect();
+
+            let loaded: Vec<InstanceConfig> = dirs
+                .into_par_iter()
+                .filter_map(|dir| {
+                    let conf_file = dir.join("instance.json");
                     if conf_file.exists() {
                         if let Ok(content) = fs::read_to_string(&conf_file) {
                             match serde_json::from_str::<InstanceConfig>(&content) {
-                                Ok(inst) => {
-                                    self.instances.insert(inst.id.clone(), inst);
-                                }
+                                Ok(inst) => return Some(inst),
                                 Err(e) => {
                                     warn!(
                                         "Failed to parse instance JSON at {:?}: {}",
@@ -152,7 +158,12 @@ impl InstanceManager {
                             }
                         }
                     }
-                }
+                    None
+                })
+                .collect();
+
+            for inst in loaded {
+                self.instances.insert(inst.id.clone(), inst);
             }
         }
 

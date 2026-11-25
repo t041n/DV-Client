@@ -238,15 +238,18 @@ impl InstallationPipeline {
             .download_all(download_tasks, progress_cb)
             .await?;
 
-        // 5. Extract native libraries safely
+        // 5. Extract native libraries safely in parallel
         set_status(&format!(
             "Extracting native libraries into {:?}...",
             natives_dir
         ));
-        for archive in &native_archives_to_extract {
-            if archive.exists() {
-                let _ = extract_natives(archive, &natives_dir, &[]);
-            }
+        {
+            use rayon::prelude::*;
+            native_archives_to_extract.par_iter().for_each(|archive| {
+                if archive.exists() {
+                    let _ = extract_natives(archive, &natives_dir, &[]);
+                }
+            });
         }
 
         set_status("Installation, verification, and extraction complete!");

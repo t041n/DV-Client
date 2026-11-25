@@ -157,20 +157,24 @@ impl JavaDetector {
         #[cfg(not(target_os = "windows"))]
         Self::scan_unix_java(&mut candidate_paths, extra_roots);
 
-        for path in candidate_paths {
-            if let Some(info) = Self::inspect_executable(&path) {
-                // Avoid duplicates by canonical path where possible
-                let canonical =
-                    dunce::canonicalize(&info.path).unwrap_or_else(|_| info.path.clone());
-                if !runtimes.iter().any(|r: &JavaInstallation| {
-                    dunce::canonicalize(&r.path).unwrap_or_else(|_| r.path.clone()) == canonical
-                }) {
-                    info!(
-                        "Discovered Java runtime: {} (v{}) at {:?}",
-                        info.vendor, info.full_version, info.path
-                    );
-                    runtimes.push(info);
-                }
+        use rayon::prelude::*;
+        let inspected_runtimes: Vec<JavaInstallation> = candidate_paths
+            .into_par_iter()
+            .filter_map(|path| Self::inspect_executable(&path))
+            .collect();
+
+        for info in inspected_runtimes {
+            // Avoid duplicates by canonical path where possible
+            let canonical =
+                dunce::canonicalize(&info.path).unwrap_or_else(|_| info.path.clone());
+            if !runtimes.iter().any(|r: &JavaInstallation| {
+                dunce::canonicalize(&r.path).unwrap_or_else(|_| r.path.clone()) == canonical
+            }) {
+                info!(
+                    "Discovered Java runtime: {} (v{}) at {:?}",
+                    info.vendor, info.full_version, info.path
+                );
+                runtimes.push(info);
             }
         }
 

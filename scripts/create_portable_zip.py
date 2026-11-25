@@ -9,6 +9,9 @@ if os.path.exists(release_zip):
 with zipfile.ZipFile(release_zip, "w", zipfile.ZIP_DEFLATED) as z:
     if os.path.exists("dv-launcher-app.exe"):
         z.write("dv-launcher-app.exe", "dv-launcher-app.exe")
+        z.write("dv-launcher-app.exe", "DigitalVigitalLauncher.exe")
+    if os.path.exists("dv_core.dll"):
+        z.write("dv_core.dll", "dv_core.dll")
     if os.path.exists("WebView2Loader.dll"):
         z.write("WebView2Loader.dll", "WebView2Loader.dll")
     if os.path.exists("assets/logo.png"):

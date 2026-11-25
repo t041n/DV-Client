@@ -48,18 +48,36 @@ fn fast_base64_encode(data: &[u8]) -> String {
 }
 
 fn dir_size(path: &Path) -> u64 {
-    let mut total = 0;
+    use rayon::prelude::*;
     if let Ok(entries) = std::fs::read_dir(path) {
-        for entry in entries.filter_map(|e| e.ok()) {
+        let entries: Vec<_> = entries.filter_map(|e| e.ok()).collect();
+        entries.into_par_iter().map(|entry| {
             let p = entry.path();
             if p.is_dir() {
-                total += dir_size(&p);
+                dir_size(&p)
             } else if let Ok(meta) = entry.metadata() {
-                total += meta.len();
+                meta.len()
+            } else {
+                0
             }
+        }).sum()
+    } else {
+        0
+    }
+}
+
+fn open_path_native(path: &Path) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let mut cmd = std::process::Command::new("explorer.exe");
+        cmd.arg(path);
+        if cmd.spawn().is_ok() {
+            return Ok(());
         }
     }
-    total
+    open::that_detached(path)
+        .or_else(|_| open::that(path))
+        .map_err(|e| format!("Could not open folder: {}", e))
 }
 
 #[tauri::command]
@@ -67,43 +85,53 @@ pub async fn get_instance_worlds(
     instance_id: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<WorldSaveDto>, String> {
-    let mgr = state.instance_mgr.lock().await;
-    let inst = mgr
-        .instances
-        .get(&instance_id)
-        .ok_or_else(|| "Instance not found".to_string())?;
+    let (saves_dir, alt_saves_dir) = {
+        let mgr = state.instance_mgr.lock().await;
+        let inst = mgr
+            .instances
+            .get(&instance_id)
+            .ok_or_else(|| "Instance not found".to_string())?;
 
-    let saves_dir = inst.game_dir(&mgr.instances_dir).join("saves");
+        let saves = inst.game_dir(&mgr.instances_dir).join("saves");
+        let alt = inst.instance_dir(&mgr.instances_dir).join("saves");
+        (saves, alt)
+    };
+
     let _ = std::fs::create_dir_all(&saves_dir);
 
-    let alt_saves_dir = inst.instance_dir(&mgr.instances_dir).join("saves");
+    tokio::task::spawn_blocking(move || {
+        use rayon::prelude::*;
+        let mut seen_folders = std::collections::HashSet::new();
+        let mut candidates = Vec::new();
 
-    let mut worlds = Vec::new();
-    let mut seen_folders = std::collections::HashSet::new();
-
-    let scan_dirs = vec![saves_dir, alt_saves_dir];
-    for dir in scan_dirs {
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            for entry in entries.filter_map(|e| e.ok()) {
-                let path = entry.path();
-                if !path.is_dir() {
-                    continue;
+        let scan_dirs = vec![saves_dir, alt_saves_dir];
+        for dir in scan_dirs {
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let path = entry.path();
+                    if !path.is_dir() {
+                        continue;
+                    }
+                    let folder_name = entry.file_name().to_string_lossy().to_string();
+                    if folder_name.starts_with('.') || seen_folders.contains(&folder_name) {
+                        continue;
+                    }
+                    seen_folders.insert(folder_name.clone());
+                    candidates.push((folder_name, path));
                 }
+            }
+        }
 
-                let folder_name = entry.file_name().to_string_lossy().to_string();
-                if folder_name.starts_with('.') || seen_folders.contains(&folder_name) {
-                    continue;
-                }
-                seen_folders.insert(folder_name.clone());
-
-                let meta = entry.metadata().ok();
+        let mut worlds: Vec<WorldSaveDto> = candidates
+            .into_par_iter()
+            .map(|(folder_name, path)| {
+                let meta = path.metadata().ok();
                 let modified = meta.and_then(|m| m.modified().ok()).and_then(|t| {
                     t.duration_since(std::time::UNIX_EPOCH).ok().map(|d| d.as_secs())
                 });
 
                 let size = dir_size(&path);
 
-                // Check for icon.png in save folder
                 let icon_path = path.join("icon.png");
                 let icon_base64 = if icon_path.exists() {
                     std::fs::read(&icon_path)
@@ -115,19 +143,21 @@ pub async fn get_instance_worlds(
 
                 let world_name = folder_name.replace('_', " ");
 
-                worlds.push(WorldSaveDto {
+                WorldSaveDto {
                     folder_name,
                     name: world_name,
                     last_played_timestamp: modified,
                     size_bytes: size,
                     icon_base64,
-                });
-            }
-        }
-    }
+                }
+            })
+            .collect();
 
-    worlds.sort_by(|a, b| b.last_played_timestamp.cmp(&a.last_played_timestamp));
-    Ok(worlds)
+        worlds.sort_by(|a, b| b.last_played_timestamp.cmp(&a.last_played_timestamp));
+        Ok(worlds)
+    })
+    .await
+    .map_err(|e| format!("Failed to scan worlds: {}", e))?
 }
 
 #[tauri::command]
@@ -144,9 +174,7 @@ pub async fn open_instance_saves(
     let saves_dir = inst.game_dir(&mgr.instances_dir).join("saves");
     std::fs::create_dir_all(&saves_dir).map_err(|e| e.to_string())?;
 
-    open::that_detached(&saves_dir)
-        .or_else(|_| open::that(&saves_dir))
-        .map_err(|e| format!("Could not open folder: {}", e))
+    open_path_native(&saves_dir)
 }
 
 #[tauri::command]
@@ -163,9 +191,7 @@ pub async fn open_instance_screenshots(
     let shots_dir = inst.game_dir(&mgr.instances_dir).join("screenshots");
     std::fs::create_dir_all(&shots_dir).map_err(|e| e.to_string())?;
 
-    open::that_detached(&shots_dir)
-        .or_else(|_| open::that(&shots_dir))
-        .map_err(|e| format!("Could not open folder: {}", e))
+    open_path_native(&shots_dir)
 }
 
 #[tauri::command]
@@ -412,33 +438,48 @@ pub async fn get_instance_screenshots(
     instance_id: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<ScreenshotDto>, String> {
-    let mgr = state.instance_mgr.lock().await;
-    let inst = mgr
-        .instances
-        .get(&instance_id)
-        .ok_or_else(|| "Instance not found".to_string())?;
+    let screenshots_dir = {
+        let mgr = state.instance_mgr.lock().await;
+        let inst = mgr
+            .instances
+            .get(&instance_id)
+            .ok_or_else(|| "Instance not found".to_string())?;
 
-    let screenshots_dir = inst.game_dir(&mgr.instances_dir).join("screenshots");
-    let _ = std::fs::create_dir_all(&screenshots_dir);
-
-    let entries = match std::fs::read_dir(&screenshots_dir) {
-        Ok(e) => e,
-        Err(_) => return Ok(Vec::new()),
+        inst.game_dir(&mgr.instances_dir).join("screenshots")
     };
 
-    let mut screenshots = Vec::new();
-    for entry in entries.filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if path.is_file() {
-            let fname = entry.file_name().to_string_lossy().to_string();
-            if fname.to_lowercase().ends_with(".png") {
-                let meta = entry.metadata().ok();
+    let _ = std::fs::create_dir_all(&screenshots_dir);
+
+    tokio::task::spawn_blocking(move || {
+        use rayon::prelude::*;
+        let entries = match std::fs::read_dir(&screenshots_dir) {
+            Ok(e) => e,
+            Err(_) => return Ok(Vec::new()),
+        };
+
+        let candidate_paths: Vec<_> = entries
+            .filter_map(|e| e.ok())
+            .filter_map(|entry| {
+                let p = entry.path();
+                if p.is_file() {
+                    let fname = entry.file_name().to_string_lossy().to_string();
+                    if fname.to_lowercase().ends_with(".png") {
+                        return Some((fname, p));
+                    }
+                }
+                None
+            })
+            .collect();
+
+        let mut screenshots: Vec<ScreenshotDto> = candidate_paths
+            .into_par_iter()
+            .map(|(fname, path)| {
+                let meta = path.metadata().ok();
                 let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
                 let modified = meta.and_then(|m| m.modified().ok()).and_then(|t| {
                     t.duration_since(std::time::UNIX_EPOCH).ok().map(|d| d.as_secs())
                 });
 
-                // Thumbnail: read up to 4MB base64 for in-app preview
                 let thumbnail_base64 = if size < 4 * 1024 * 1024 {
                     std::fs::read(&path)
                         .ok()
@@ -447,19 +488,21 @@ pub async fn get_instance_screenshots(
                     None
                 };
 
-                screenshots.push(ScreenshotDto {
+                ScreenshotDto {
                     filename: fname,
                     path: path.to_string_lossy().to_string(),
                     size_bytes: size,
                     modified_timestamp: modified,
                     thumbnail_base64,
-                });
-            }
-        }
-    }
+                }
+            })
+            .collect();
 
-    screenshots.sort_by(|a, b| b.modified_timestamp.cmp(&a.modified_timestamp));
-    Ok(screenshots)
+        screenshots.sort_by(|a, b| b.modified_timestamp.cmp(&a.modified_timestamp));
+        Ok(screenshots)
+    })
+    .await
+    .map_err(|e| format!("Failed to read screenshots: {}", e))?
 }
 
 #[tauri::command]
